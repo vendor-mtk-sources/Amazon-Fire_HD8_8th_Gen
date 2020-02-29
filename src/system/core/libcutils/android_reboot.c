@@ -65,6 +65,23 @@ static bool is_block_device(const char* fsname)
     return !strncmp(fsname, "/dev/block", 10);
 }
 
+// fosmod_nand begin
+static bool is_ubifs(const char* fstype)
+{
+    return !strcmp(fstype, "ubifs");
+}
+
+/*
+ * Thus function provides the filter to skip the attempted read-only
+ * remount of possibly OS critical volatile memory backed filesystems such as
+ * debugfs.
+ */
+static bool is_emergency_remountable(const struct mntent* mentry)
+{
+    return is_block_device(mentry->mnt_fsname) || is_ubifs(mentry->mnt_type);
+}
+// fosmod_nand end
+
 /* Find all read+write block devices in /proc/mounts and add them to
  * |rw_entries|.
  */
@@ -78,7 +95,7 @@ static void find_rw(struct listnode* rw_entries)
         return;
     }
     while ((mentry = getmntent(fp)) != NULL) {
-        if (is_block_device(mentry->mnt_fsname) &&
+        if (is_emergency_remountable(mentry) && // fosmod_nand oneline
             has_mount_option(mentry->mnt_opts, "rw")) {
             mntent_list* item = (mntent_list*)calloc(1, sizeof(mntent_list));
             item->entry = *mentry;
@@ -170,7 +187,7 @@ static void remount_ro(void (*cb_on_remount)(const struct mntent*))
             goto out;
         }
         while ((mentry = getmntent(fp)) != NULL) {
-            if (!is_block_device(mentry->mnt_fsname) ||
+            if (!is_emergency_remountable(mentry) || // fosmod_nand oneline
                 !has_mount_option(mentry->mnt_opts, "ro")) {
                 continue;
             }

@@ -114,7 +114,7 @@ function setup_output_dir {
 
 function download_toolchain {
     echo "Cloning toolchain ${TOOLCHAIN_REPO} to ${TOOLCHAIN_DIR}"
-    git clone "${TOOLCHAIN_REPO}" "${TOOLCHAIN_DIR}"
+    git clone "${TOOLCHAIN_REPO}" "${TOOLCHAIN_DIR}" -b nougat-release
     if [[ $? -ne 0 ]]
     then
         echo "ERROR: Could not clone toolchain from ${TOOLCHAIN_REPO}."
