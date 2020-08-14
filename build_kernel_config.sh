@@ -2,13 +2,17 @@
 #
 #  build_kernel_config.sh
 #
-#  Copyright (c) 2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  Copyright (c) 2016-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 ################################################################################
 
-KERNEL_SUBPATH="kernel/mediatek/mt8163/3.18"
+KERNEL_SUBPATH="kernel/mediatek/mt8163/4.9"
 DEFCONFIG_NAME="karnak_defconfig"
 TARGET_ARCH="arm64"
-TOOLCHAIN_REPO="https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9"
-TOOLCHAIN_PREFIX="aarch64-linux-android-"
-MAKE_DTBS=y
+TOOLCHAIN_PREFIX="aarch64-linux-gnu-"
+
+################################################################################
+# NOTE: You must fill in the following with the path to a copy of
+#       aarch64-linux-gnu-6.3.1 compiler.
+################################################################################
+CROSS_COMPILER_PATH=""

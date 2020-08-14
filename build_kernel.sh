@@ -3,7 +3,7 @@
 #
 #  build_kernel.sh
 #
-#  Copyright (c) 2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  Copyright (c) 2016-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 ################################################################################
 
@@ -30,17 +30,13 @@ SCRIPT_BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Configuration file for the build.
 CONFIG_FILE="${SCRIPT_BASE_DIR}/build_kernel_config.sh"
 
-# Prebuilts include folder
-PREBUILTS_FOLDER="${SCRIPT_BASE_DIR}/prebuilt"
-
 # Workspace directory & relevant temp folders.
 WORKSPACE_DIR="$(mktemp -d)"
 
-TOOLCHAIN_DIR="${WORKSPACE_DIR}/toolchain"
 PLATFORM_EXTRACT_DIR="${WORKSPACE_DIR}/src"
 WORKSPACE_OUT_DIR="${WORKSPACE_DIR}/out"
 
-for d in "${TOOLCHAIN_DIR}" "${PLATFORM_EXTRACT_DIR}" "$WORKSPACE_OUT_DIR"
+for d in "${PLATFORM_EXTRACT_DIR}" "$WORKSPACE_OUT_DIR"
 do
     mkdir -p "${d}"
 done
@@ -68,10 +64,12 @@ function validate_input_params {
              "that you have extracted the build script properly and try again."
         usage
     fi
+}
 
-    if [[ ! -d "${PREBUILTS_FOLDER}" ]]
+function validate_cross_compiler {
+    if [[ -z "${CROSS_COMPILER_PATH}" ]]
     then
-        echo "ERROR: Missing prebuilts folder ${PREBUILTS_FOLDER}"
+        echo "ERROR: CROSS_COMPILER_PATH not set correctly"
         usage
     fi
 }
@@ -83,7 +81,6 @@ function display_config {
     echo "KERNEL SUBPATH: ${KERNEL_SUBPATH}"
     echo "DEFINITION CONFIG: ${DEFCONFIG_NAME}"
     echo "TARGET ARCHITECTURE: ${TARGET_ARCH}"
-    echo "TOOLCHAIN REPO: ${TOOLCHAIN_REPO}"
     echo "TOOLCHAIN PREFIX: ${TOOLCHAIN_PREFIX}"
     echo "-------------------------------------------------------------------------"
     echo "Sleeping 3 seconds before continuing."
@@ -112,23 +109,13 @@ function setup_output_dir {
     fi
 }
 
-function download_toolchain {
-    echo "Cloning toolchain ${TOOLCHAIN_REPO} to ${TOOLCHAIN_DIR}"
-    git clone "${TOOLCHAIN_REPO}" "${TOOLCHAIN_DIR}" -b nougat-release
-    if [[ $? -ne 0 ]]
-    then
-        echo "ERROR: Could not clone toolchain from ${TOOLCHAIN_REPO}."
-        exit 2
-    fi
-}
-
 function extract_tarball {
     echo "Extracting tarball to ${PLATFORM_EXTRACT_DIR}"
     tar xf "${PLATFORM_TARBALL}" -C ${PLATFORM_EXTRACT_DIR}
 }
 
 function exec_build_kernel {
-    CCOMPILE="${TOOLCHAIN_DIR}/bin/${TOOLCHAIN_PREFIX}"
+    CCOMPILE="${CROSS_COMPILER_PATH}/bin/${TOOLCHAIN_PREFIX}"
 
     if [[ -n "${KERNEL_SUBPATH}" ]]
     then
@@ -137,62 +124,20 @@ function exec_build_kernel {
 
     MAKE_ARGS="${MAKE_ARGS} O=${WORKSPACE_OUT_DIR} ARCH=${TARGET_ARCH} CROSS_COMPILE=${CCOMPILE}"
     echo "Base make args: ${MAKE_ARGS}"
-
+    
     # Move into the build base folder.
     pushd "${PLATFORM_EXTRACT_DIR}"
 
-    # Step 1: defconfig
     echo "Make defconfig: make ${MAKE_ARGS} ${DEFCONFIG_NAME}"
     make ${MAKE_ARGS} ${DEFCONFIG_NAME}
 
-    # Step 2: check trapz:
-    local KERNEL_FOLDER="${PLATFORM_EXTRACT_DIR}/${KERNEL_SUBPATH}"
-    local TRAPZ_CFG="${KERNEL_FOLDER}/arch/${TARGET_ARCH}/configs/trapz.config"
-    local OUTPUT_CFG="${WORKSPACE_OUT_DIR}/.config"
-
-    if [[ -f $TRAPZ_CFG ]]
-    then
-        echo "Adding trapz config to config"
-        cat "${TRAPZ_CFG}" >> "${OUTPUT_CFG}"
-    else
-        echo "No trapz config found."
-    fi
-
-    # Step 3: run oldconfig
-    echo "Make oldconfig: make ${MAKE_ARGS} oldconfig"
-    make ${MAKE_ARGS} oldconfig
-
-    # Step 3A: output config, for reference
-    echo ".config contents"
-    echo "---------------------------------------------------------------------"
-    cat "${OUTPUT_CFG}"
-    echo "---------------------------------------------------------------------"
-
-    # Step 4: Make headers install
-    echo "Make headers install: make ${MAKE_ARGS} headers_install"
-    make ${MAKE_ARGS} headers_install
-
-    # Step 5: install prebuilt headers
-    if [[ -d "${PREBUILTS_FOLDER}" ]]
-    then
-        echo "Copying prebuilts to ${WORKSPACE_OUT_DIR}"
-        cp -av ${PREBUILTS_FOLDER}/* "${WORKSPACE_OUT_DIR}"
-    fi
-
-    # Step 6: dtbs
-    if [[ -n "${MAKE_DTBS}" ]]
-    then
-        echo "Make dtbs: make ${MAKE_ARGS} dtbs"
-        make ${MAKE_ARGS} dtbs
-    fi
-
-    # Step 7: full make
     echo "Running full make"
-    if [[ -n "${ZIMAGE_TARGET}" ]]
+    make ${MAKE_ARGS} ${PARALLEL_EXECUTION}
+
+    if [[ $? -ne 0 ]]
     then
-        make ${MAKE_ARGS} ${PARALLEL_EXECUTION} USE_TRAPZ=true zImage
-    else
-        make ${MAKE_ARGS} ${PARALLEL_EXECUTION} USE_TRAPZ=true
+        echo "Build failed"
+        exit 10
     fi
 
     popd
@@ -222,13 +167,16 @@ function copy_to_output {
 
 # Phase 1: Set up execution
 validate_input_params
+
 source "${CONFIG_FILE}"
+
+validate_cross_compiler
+
 setup_output_dir
 TARGET_DIR="$(cd "${TARGET_DIR}" && pwd)"
 display_config
 
 # Phase 2: Set up environment
-download_toolchain
 extract_tarball
 
 # Phase 3: build
