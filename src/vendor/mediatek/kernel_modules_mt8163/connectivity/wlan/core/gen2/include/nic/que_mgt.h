@@ -1062,6 +1062,7 @@ VOID qmHandleEventCheckReorderBubble(IN P_ADAPTER_T prAdapter, IN P_WIFI_EVENT_T
 VOID qmHandleRxIpPackets(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb, UINT_16 *flag);
 VOID qmHandleMissTimeout(IN P_RX_BA_ENTRY_T prReorderQueParm);
 #endif
+VOID qmMoveStaTxQueue(P_STA_RECORD_T prSrcStaRec, P_STA_RECORD_T prDstStaRec);
 /*******************************************************************************
 *                              F U N C T I O N S
 ********************************************************************************

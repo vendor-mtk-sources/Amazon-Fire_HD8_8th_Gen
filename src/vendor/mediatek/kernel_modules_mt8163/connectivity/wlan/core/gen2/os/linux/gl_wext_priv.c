@@ -3397,6 +3397,14 @@ exit:
 #define CMD_CH_ENV_GET			"CH_ENV_GET"
 #endif
 
+#if CFG_SUPPORT_802_11K
+#define CMD_NEIGHBOR_REQUEST    "NEIGHBOR-REQUEST"
+#endif
+#if CFG_SUPPORT_802_11V_BSS_TRANSITION_MGT
+#define CMD_BSS_TRANSITION_QUERY    "BSS-TRANSITION-QUERY"
+#endif
+
+
 INT_32 priv_driver_cmds(IN struct net_device *prNetDev, IN PCHAR pcCommand, IN INT_32 i4TotalLen)
 {
 	P_GLUE_INFO_T prGlueInfo = NULL;

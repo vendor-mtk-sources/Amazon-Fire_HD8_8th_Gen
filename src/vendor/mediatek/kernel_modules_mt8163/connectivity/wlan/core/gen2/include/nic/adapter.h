@@ -993,6 +993,10 @@ struct _AIS_SPECIFIC_BSS_INFO_T {
 	TIMER_T rSaQueryTimer;
 	BOOLEAN fgBipKeyInstalled;
 #endif
+#if CFG_SUPPORT_802_11V_BSS_TRANSITION_MGT
+	struct BSS_TRANSITION_MGT_PARAM_T rBTMParam;
+#endif
+
 };
 
 struct _BOW_SPECIFIC_BSS_INFO_T {
@@ -1111,6 +1115,10 @@ typedef struct _WIFI_VAR_T {
 #endif
 #if CFG_RX_BA_REORDERING_ENHANCEMENT
 	BOOLEAN fgEnableReportIndependentPkt;
+#endif
+#if CFG_SUPPORT_802_11K
+	struct RADIO_MEASUREMENT_REQ_PARAMS rRmReqParams;
+	struct RADIO_MEASUREMENT_REPORT_PARAMS rRmRepParams;
 #endif
 } WIFI_VAR_T, *P_WIFI_VAR_T;	/* end of _WIFI_VAR_T */
 

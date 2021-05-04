@@ -798,6 +798,18 @@ typedef struct _TDLS_INFO_T {
 	INT8 cLinkCnt;
 } TDLS_INFO_T;
 #endif /* CFG_SUPPORT_TDLS */
+#if CFG_SUPPORT_802_11R
+struct FT_IES {
+	UINT_16 u2MDID;
+	struct IE_MOBILITY_DOMAIN_T *prMDIE;
+	struct IE_FAST_TRANSITION_T *prFTIE;
+	IE_TIMEOUT_INTERVAL_T *prTIE;
+	P_RSN_INFO_ELEM_T prRsnIE;
+	PUINT_8 pucIEBuf;
+	UINT_32 u4IeLength;
+};
+#endif
+
 
 /*
 * type definition of pointer to p2p structure
@@ -1007,6 +1019,11 @@ struct _GLUE_INFO_T {
 	struct DRV_PKT_STAT_T arDrvPktStat[DRV_PKT_NUM];
 	struct DRV_COMMON_WORK_T rDrvWork;
 #endif
+#if CFG_SUPPORT_802_11R
+	struct FT_IES rFtIeForTx;
+	struct cfg80211_ft_event_params rFtEventParam;
+#endif
+
 };
 
 struct NETDEV_PRIVATE_GLUE_INFO {
@@ -1052,6 +1069,7 @@ enum TestModeCmdType {
 	/* all new added test mode command should great than TESTMODE_CMD_ID_NEW_BEGIN */
 	TESTMODE_CMD_ID_NEW_BEGIN = 100,
 	TESTMODE_CMD_ID_SUSPEND = 101,
+	TESTMODE_CMD_ID_STR_CMD = 102,
 };
 #if CFG_SUPPORT_HOTSPOT_2_0
 enum Hs20CmdType {

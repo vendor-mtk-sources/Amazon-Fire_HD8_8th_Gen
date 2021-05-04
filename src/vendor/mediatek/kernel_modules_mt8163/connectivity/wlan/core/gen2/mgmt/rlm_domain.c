@@ -279,11 +279,18 @@ DOMAIN_INFO_ENTRY arSupportedRegDomains[] = {
 
 	  {115, BAND_5G, CHNL_SPAN_20, 36, 4, FALSE}
 	  ,			/* CH_SET_UNII_LOW_36_48 */
+#ifdef CONFIG_WIFI_DFS_CHANNEL
+	  {118, BAND_5G, CHNL_SPAN_20, 52, 4, FALSE}
+	  ,			/* CH_SET_UNII_MID_52_64 */
+	  {121, BAND_5G, CHNL_SPAN_20, 100, 12, FALSE}
+	  ,			/* CH_SET_UNII_WW_100_144 */
+#else
 #if !CFG_CUSTOM_REG
 	  {118, BAND_5G, CHNL_SPAN_20, 52, 4, FALSE}
 	  ,			/* CH_SET_UNII_MID_52_64 */
 	  {121, BAND_5G, CHNL_SPAN_20, 100, 12, FALSE}
 	  ,			/* CH_SET_UNII_WW_100_144 */
+#endif
 #endif
 	  {125, BAND_5G, CHNL_SPAN_20, 149, 5, FALSE}
 	  ,			/* CH_SET_UNII_UPPER_149_165 */
@@ -353,6 +360,14 @@ DOMAIN_INFO_ENTRY arSupportedRegDomains[] = {
 
 	  {115, BAND_5G, CHNL_SPAN_20, 36, 4, FALSE}
 	  ,			/* CH_SET_UNII_LOW_36_48 */
+#ifdef CONFIG_WIFI_DFS_CHANNEL
+	  {118, BAND_5G, CHNL_SPAN_20, 52, 4, FALSE}
+	  ,			/* CH_SET_UNII_MID_52_64 */
+	  {121, BAND_5G, CHNL_SPAN_20, 100, 11, FALSE}
+	  ,			/* CH_SET_UNII_WW_100_140 */
+	  {125, BAND_NULL, 0, 0, 0, FALSE}
+	  ,			/* CH_SET_UNII_UPPER_NA */
+#else
 #if !CFG_CUSTOM_REG
 	  {118, BAND_5G, CHNL_SPAN_20, 52, 4, FALSE}
 	  ,			/* CH_SET_UNII_MID_52_64 */
@@ -360,6 +375,7 @@ DOMAIN_INFO_ENTRY arSupportedRegDomains[] = {
 	  ,			/* CH_SET_UNII_WW_100_140 */
 	  {125, BAND_NULL, 0, 0, 0, FALSE}
 	  ,			/* CH_SET_UNII_UPPER_NA */
+#endif
 #endif
 	  {0, BAND_NULL, 0, 0, 0, FALSE}
 	  }
@@ -376,11 +392,18 @@ DOMAIN_INFO_ENTRY arSupportedRegDomains[] = {
 #endif
 	  {115, BAND_5G, CHNL_SPAN_20, 36, 4, FALSE}
 	  ,			/* CH_SET_UNII_LOW_36_48 */
+#ifdef CONFIG_WIFI_DFS_CHANNEL
+	  {118, BAND_5G, CHNL_SPAN_20, 52, 4, FALSE}
+	  ,			/* CH_SET_UNII_MID_52_64 */
+	  {121, BAND_5G, CHNL_SPAN_20, 100, 11, FALSE}
+	  ,			/* CH_SET_UNII_WW_100_140 */
+#else
 #if !CFG_CUSTOM_REG
 	  {118, BAND_5G, CHNL_SPAN_20, 52, 4, FALSE}
 	  ,			/* CH_SET_UNII_MID_52_64 */
 	  {121, BAND_5G, CHNL_SPAN_20, 100, 11, FALSE}
 	  ,			/* CH_SET_UNII_WW_100_140 */
+#endif
 #endif
 	  {125, BAND_NULL, 0, 0, 0, FALSE}
 	  ,			/* CH_SET_UNII_UPPER_NA */
@@ -449,11 +472,18 @@ DOMAIN_INFO_ENTRY arSupportedRegDomains[] = {
 
 	  {115, BAND_5G, CHNL_SPAN_20, 36, 4, FALSE}
 	  ,			/* CH_SET_UNII_LOW_36_48 */
+#ifdef CONFIG_WIFI_DFS_CHANNEL
+	  {118, BAND_5G, CHNL_SPAN_20, 52, 4, FALSE}
+	  ,			/* CH_SET_UNII_MID_52_64 */
+	  {121, BAND_NULL, 0, 0, 0, FALSE}
+	  ,			/* CH_SET_UNII_WW_NA */
+#else
 #if !CFG_CUSTOM_REG
 	  {118, BAND_5G, CHNL_SPAN_20, 52, 4, FALSE}
 	  ,			/* CH_SET_UNII_MID_52_64 */
 	  {121, BAND_NULL, 0, 0, 0, FALSE}
 	  ,			/* CH_SET_UNII_WW_NA */
+#endif
 #endif
 	  {125, BAND_5G, CHNL_SPAN_20, 149, 5, FALSE}
 	  ,			/* CH_SET_UNII_UPPER_149_165 */
@@ -469,10 +499,17 @@ DOMAIN_INFO_ENTRY arSupportedRegDomains[] = {
 
 	  {115, BAND_5G, CHNL_SPAN_20, 36, 4, FALSE}
 	  ,			/* CH_SET_UNII_LOW_36_48 */
+#ifdef CONFIG_WIFI_DFS_CHANNEL
+	  {118, BAND_5G, CHNL_SPAN_20, 52, 4, FALSE}
+	  ,			/* CH_SET_UNII_MID_NA */
+	  {121, BAND_5G, CHNL_SPAN_20, 100, 12, FALSE}
+	  ,			/* CH_SET_UNII_WW_NA */
+#else
 	  {118, BAND_NULL, 0, 0, 0, FALSE}
 	  ,			/* CH_SET_UNII_MID_NA */
 	  {121, BAND_NULL, 0, 0, 0, FALSE}
 	  ,			/* CH_SET_UNII_WW_NA */
+#endif
 	  {125, BAND_5G, CHNL_SPAN_20, 149, 5, FALSE}
 	  ,			/* CH_SET_UNII_UPPER_149_165 */
 	  {0, BAND_NULL, 0, 0, 0, FALSE}
@@ -632,6 +669,14 @@ DOMAIN_INFO_ENTRY arSupportedRegDomains[] = {
 
 	  {115, BAND_5G, CHNL_SPAN_20, 36, 4, FALSE}
 	  ,			/* CH_SET_UNII_LOW_36_48 */
+#ifdef CONFIG_WIFI_DFS_CHANNEL
+	  {118, BAND_5G, CHNL_SPAN_20, 52, 4, FALSE}
+	  ,			/* CH_SET_UNII_MID_52_64 */
+	  {121, BAND_5G, CHNL_SPAN_20, 100, 12, FALSE}
+	  ,			/* CH_SET_UNII_WW_100_144 */
+	  {125, BAND_5G, CHNL_SPAN_20, 149, 7, FALSE}
+	  ,			/* CH_SET_UNII_UPPER_149_173 */
+#else
 #if !CFG_CUSTOM_REG
 	  {118, BAND_5G, CHNL_SPAN_20, 52, 4, FALSE}
 	  ,			/* CH_SET_UNII_MID_52_64 */
@@ -639,6 +684,7 @@ DOMAIN_INFO_ENTRY arSupportedRegDomains[] = {
 	  ,			/* CH_SET_UNII_WW_100_144 */
 	  {125, BAND_5G, CHNL_SPAN_20, 149, 7, FALSE}
 	  ,			/* CH_SET_UNII_UPPER_149_173 */
+#endif
 #endif
 	  {0, BAND_NULL, 0, 0, 0, FALSE}
 	  }
@@ -672,10 +718,33 @@ DOMAIN_INFO_ENTRY arSupportedRegDomains[] = {
 static UINT_16 g_u2CountryGroup0_Passive[] = {
 	COUNTRY_CODE_UDF
 };
+
+#ifdef CONFIG_WIFI_DFS_CHANNEL
+static UINT_16 g_u2CountryGroup1_Passive[] = {
+	COUNTRY_CODE_WW
+};
+static UINT_16 g_u2CountryGroup2_Passive[] = {
+	COUNTRY_CODE_US,
+	COUNTRY_CODE_CA,
+};
+static UINT_16 g_u2CountryGroup3_Passive[] = {
+	COUNTRY_CODE_FR,
+	COUNTRY_CODE_DE,
+	COUNTRY_CODE_IT,
+	COUNTRY_CODE_ES,
+	COUNTRY_CODE_GB,
+	COUNTRY_CODE_AT,
+	COUNTRY_CODE_JP,
+};
+static UINT_16 g_u2CountryGroup4_Passive[] = {
+	COUNTRY_CODE_IN,
+};
+#else
 #if CFG_CUSTOM_REG
 static UINT_16 g_u2CountryGroup1_Passive[] = {
 	COUNTRY_CODE_WW
 };
+#endif
 #endif
 /*
  * Passive scan setting example
@@ -712,6 +781,56 @@ DOMAIN_INFO_ENTRY arSupportedRegDomains_Passive[] = {
 	  {125, BAND_5G, CHNL_SPAN_20, 149, 0, 0},	/* CH_SET_UNII_UPPER_149_173 */
 	  }
 	 },
+#ifdef CONFIG_WIFI_DFS_CHANNEL
+	{
+		g_u2CountryGroup1_Passive,
+		ARRAY_SIZE(g_u2CountryGroup1_Passive),
+		{
+			{81, BAND_2G4, CHNL_SPAN_5, 1, 0, 0},
+			{82, BAND_2G4, CHNL_SPAN_5, 12, 2, 0},
+			{115, BAND_5G, CHNL_SPAN_20, 36, 0, 0},
+			{118, BAND_5G, CHNL_SPAN_20, 52, 4, 0},
+			{121, BAND_5G, CHNL_SPAN_20, 100, 12, 0},
+			{125, BAND_5G, CHNL_SPAN_20, 149, 5, 0},
+		}
+	},
+	{
+		g_u2CountryGroup2_Passive,
+		ARRAY_SIZE(g_u2CountryGroup2_Passive),
+		{
+			{81, BAND_2G4, CHNL_SPAN_5, 1, 0, 0},
+			{82, BAND_2G4, CHNL_SPAN_5, 12, 2, 0},
+			{115, BAND_5G, CHNL_SPAN_20, 36, 0, 0},
+			{118, BAND_5G, CHNL_SPAN_20, 52, 4, 0},
+			{121, BAND_5G, CHNL_SPAN_20, 100, 12, 0},
+			{125, BAND_5G, CHNL_SPAN_20, 149, 0, 0},
+		}
+	},
+	{
+		g_u2CountryGroup3_Passive,
+		ARRAY_SIZE(g_u2CountryGroup3_Passive),
+		{
+			{81, BAND_2G4, CHNL_SPAN_5, 1, 0, 0},
+			{82, BAND_2G4, CHNL_SPAN_5, 12, 2, 0},
+			{115, BAND_5G, CHNL_SPAN_20, 36, 0, 0},
+			{118, BAND_5G, CHNL_SPAN_20, 52, 4, 0},
+			{121, BAND_5G, CHNL_SPAN_20, 100, 11, 0},
+			{125, BAND_5G, CHNL_SPAN_20, 149, 0, 0},
+		}
+	},
+	{
+		g_u2CountryGroup4_Passive,
+		ARRAY_SIZE(g_u2CountryGroup4_Passive),
+		{
+			{81, BAND_2G4, CHNL_SPAN_5, 1, 0, 0},
+			{82, BAND_2G4, CHNL_SPAN_5, 12, 2, 0},
+			{115, BAND_5G, CHNL_SPAN_20, 36, 0, 0},
+			{118, BAND_5G, CHNL_SPAN_20, 52, 4, 0},
+			{121, BAND_5G, CHNL_SPAN_20, 100, 0, 0},
+			{125, BAND_5G, CHNL_SPAN_20, 149, 0, 0},
+		}
+	},
+#else
 #if CFG_CUSTOM_REG
 	{
 		g_u2CountryGroup1_Passive,
@@ -725,6 +844,7 @@ DOMAIN_INFO_ENTRY arSupportedRegDomains_Passive[] = {
 			{125, BAND_5G, CHNL_SPAN_20, 149, 5, 0},
 		}
 	},
+#endif
 #endif
 	/* Passive scan setting example
 	  * 1-11 active

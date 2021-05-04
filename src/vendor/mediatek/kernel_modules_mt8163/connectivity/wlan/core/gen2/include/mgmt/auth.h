@@ -130,4 +130,16 @@ authProcessRxAuth1Frame(IN P_ADAPTER_T prAdapter,
 ********************************************************************************
 */
 
+#if CFG_SUPPORT_802_11R
+VOID authAddMDIE(IN P_ADAPTER_T prAdapter, IN OUT P_MSDU_INFO_T prMsduInfo);
+
+UINT_32 authCalculateRSNIELen(P_ADAPTER_T prAdapter,
+			      ENUM_NETWORK_TYPE_INDEX_T eNetTypeIndex, P_STA_RECORD_T prStaRec);
+
+VOID authAddRSNIE(IN P_ADAPTER_T prAdapter, IN OUT P_MSDU_INFO_T prMsduInfo);
+
+VOID authHandleFtIEs(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb, P_IE_HDR_T prIEHdr);
+#endif
+
+
 #endif /* _AUTH_H */

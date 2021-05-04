@@ -796,7 +796,12 @@ static struct ieee80211_channel mtk_5ghz_channels[] = {
 	CHAN5G(116, 0), CHAN5G(120, 0),
 	CHAN5G(124, 0), CHAN5G(128, 0),
 	CHAN5G(132, 0), CHAN5G(136, 0),
+#ifdef CONFIG_WIFI_DFS_CHANNEL
+	CHAN5G(140, 0), CHAN5G(144, 0),
+	CHAN5G(149, 0),
+#else
 	CHAN5G(140, 0), CHAN5G(149, 0),
+#endif
 	CHAN5G(153, 0), CHAN5G(157, 0),
 	CHAN5G(161, 0), CHAN5G(165, 0),
 	CHAN5G(169, 0), CHAN5G(173, 0),
@@ -922,6 +927,10 @@ static struct cfg80211_ops mtk_wlan_ops = {
 	.sched_scan_start = mtk_cfg80211_sched_scan_start,
 	.sched_scan_stop = mtk_cfg80211_sched_scan_stop,
 #endif
+#if CFG_SUPPORT_802_11R
+	.update_ft_ies = mtk_cfg80211_update_ft_ies,
+#endif
+
 };
 
 static const struct wiphy_vendor_command mtk_wlan_vendor_ops[] = {
@@ -4492,6 +4501,21 @@ bailout:
 				DBGLOG(INIT, WARN, "set HW checksum offload fail 0x%x\n", rStatus);
 		}
 #endif
+#if CFG_SUPPORT_802_11K
+		{
+			WLAN_STATUS rStatus = WLAN_STATUS_FAILURE;
+			UINT_32 u4SetInfoLen = 0;
+
+			rStatus = kalIoctl(prGlueInfo,
+					   wlanoidSync11kCapbilities,
+					   NULL,
+					   0, FALSE, FALSE, TRUE, FALSE, &u4SetInfoLen);
+
+			if (rStatus != WLAN_STATUS_SUCCESS)
+				DBGLOG(INIT, WARN, "set 11k Capabilities fail 0x%x\n", rStatus);
+		}
+#endif
+
 
 		/* 4 <3> Register the card */
 		DBGLOG(INIT, TRACE, "wlanNetRegister...\n");
@@ -4534,6 +4558,10 @@ bailout:
 		if (glIsChipNeedWakelock(prGlueInfo))
 			KAL_WAKE_LOCK_INIT(prGlueInfo->prAdapter, &prGlueInfo->prAdapter->rApWakeLock, "WLAN AP");
 #endif
+#if CFG_SUPPORT_802_11R
+		kalMemZero(&prGlueInfo->rFtIeForTx, sizeof(prGlueInfo->rFtIeForTx));
+#endif
+
 	} while (FALSE);
 
 	if (i4Status != WLAN_STATUS_SUCCESS) {
