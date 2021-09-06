@@ -2252,6 +2252,7 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 					prStaRec = cnmGetStaRecByAddress(prAdapter,
 									NETWORK_TYPE_AIS_INDEX,
 									prBssInfo->aucBSSID);
+					prBssInfo->u2DeauthReason = prEventBssBeaconTimeout->ucReason;
 					if (prStaRec)
 						STATS_ENV_REPORT_DETECT(prAdapter, prStaRec->ucIndex);
 				}

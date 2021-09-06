@@ -3534,7 +3534,7 @@ VOID aisPostponedEventOfDisconnTimeout(IN P_ADAPTER_T prAdapter, ULONG ulParam)
 	/* 4 <2> Remove pending connection request */
 	aisFsmIsRequestPending(prAdapter, AIS_REQUEST_RECONNECT, TRUE);
 	prConnSettings->fgIsDisconnectedByNonRequest = TRUE;
-	prAisBssInfo->u2DeauthReason = REASON_CODE_BEACON_TIMEOUT;
+	prAisBssInfo->u2DeauthReason = 100 * REASON_CODE_BEACON_TIMEOUT + prAisBssInfo->u2DeauthReason;
 	/* 4 <3> Indicate Disconnected Event to Host immediately. */
 	aisIndicationOfMediaStateToHost(prAdapter, PARAM_MEDIA_STATE_DISCONNECTED, FALSE);
 
@@ -4698,7 +4698,6 @@ VOID aisBssBeaconTimeout(IN P_ADAPTER_T prAdapter)
 		   ALPS01270257/ ALPS01804173
 		 */
 		/* In case we need indicate disconnect before timeout. */
-		prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX].u2DeauthReason = REASON_CODE_BEACON_TIMEOUT;
 		aisFsmStateAbort(prAdapter, DISCONNECT_REASON_CODE_RADIO_LOST, TRUE);
 	}
 

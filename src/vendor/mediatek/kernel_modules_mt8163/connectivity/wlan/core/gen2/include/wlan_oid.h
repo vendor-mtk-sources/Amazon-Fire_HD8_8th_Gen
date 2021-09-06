@@ -1942,4 +1942,7 @@ WLAN_STATUS
 wlanoidNotifyChargeStatus(IN P_ADAPTER_T prAdapter,
 		IN PVOID pvQueryBuffer, IN UINT_32 u4QueryBufferLen, OUT PUINT_32 pu4QueryInfoLen);
 #endif
+WLAN_STATUS
+wlanoidQueryBandWidth(IN P_ADAPTER_T prAdapter,
+			  IN PVOID pvQueryBuffer, IN UINT_32 u4QueryBufferLen, OUT PUINT_32 pu4QueryInfoLen);
 #endif /* _WLAN_OID_H */

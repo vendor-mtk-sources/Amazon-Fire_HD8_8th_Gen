@@ -531,6 +531,7 @@ static const struct iw_priv_args rIwPrivTable[] = {
 #if CFG_SUPPORT_EXCEPTION_STATISTICS
 	{ PRIV_CMD_EXCEPTION_STAT, 0, IW_PRIV_TYPE_CHAR | 2000, "get_exp_stat" },
 #endif
+	{PRIV_CMD_GET_BAND_WIDTH, 0, IW_PRIV_TYPE_CHAR | 2000, "get_bandwidth"},
 
 };
 

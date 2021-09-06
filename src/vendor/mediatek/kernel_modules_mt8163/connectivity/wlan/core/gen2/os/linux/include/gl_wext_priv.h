@@ -260,6 +260,8 @@ extern VOID rlmCmd(P_GLUE_INFO_T prGlueInfo, UINT_8 *prInBuf, UINT_32 u4InBufLen
 #define PRIV_CMD_EXCEPTION_STAT			42
 #endif
 
+#define PRIV_CMD_GET_BAND_WIDTH			43/*fos_change*/
+
 /* other string command ID */
 #define PRIV_CMD_OTHER_TDLS				0x00
 #define PRIV_CMD_OTHER_TAR				0x01 /* TX auto rate */
