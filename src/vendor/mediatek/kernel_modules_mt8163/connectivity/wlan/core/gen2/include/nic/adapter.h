@@ -933,7 +933,10 @@ struct _BSS_INFO_T {
 	P_IPV4_NETWORK_ADDRESS_LIST prIpV4NetAddrList;
 #endif
 	UINT_16 u2DeauthReason;
-
+#if CFG_SUPPORT_RN
+	OS_SYSTIME rConnTime;
+	BOOLEAN fgDisConnReassoc;
+#endif
 #if (CFG_SUPPORT_TDLS == 1)
 	BOOLEAN fgTdlsIsProhibited;	/* TRUE: AP prohibits TDLS links */
 	BOOLEAN fgTdlsIsChSwProhibited;	/* TRUE: AP prohibits TDLS chan switch */

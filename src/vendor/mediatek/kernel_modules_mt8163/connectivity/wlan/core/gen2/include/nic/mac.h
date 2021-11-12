@@ -634,6 +634,7 @@
 #define REASON_CODE_PEER_CIPHER_UNSUPPORTED         45	/* Peer does not support the requested cipher suite */
 #define REASON_CODE_BEACON_TIMEOUT			100	/* for beacon timeout, defined by mediatek */
 #define REASON_CODE_BSS_SECURITY_CHANGE			101	/* for BSS security change, defined by mediatek */
+#define REASON_CODE_NOT_SEARCH_BSS                  2000 /*for reconnect not search the bss*/
 /* 7.3.1.8 AID field */
 #define AID_FIELD_LEN                               2
 #define AID_MASK                                    BITS(0, 13)
@@ -727,11 +728,16 @@
 #define CATEGORY_HT_ACTION                          7
 #if CFG_SUPPORT_802_11W
 #define CATEGORY_SA_QUERT_ACTION                    8
+#define CATEGORY_PROTECTED_DUAL_OF_PUBLIC_ACTION    9
+
 #endif
 #define CATEGORY_WNM_ACTION                         10	/* 802.11v Wireless Network Management */
 #define CATEGORY_UNPROTECTED_WNM_ACTION             11	/* 802.11v Wireless Network Management */
 #define CATEGORY_WME_MGT_NOTIFICATION               17	/* WME management notification */
 #define CATEGORY_VENDOR_SPECIFIC_ACTION             127
+
+#define CATEGORY_VHT_ACTION                         21	/* VHT action */
+
 
 /* 7.3.1.14 Block Ack Parameter Set field */
 #define BA_PARAM_SET_ACK_POLICY_MASK                BIT(1)
@@ -1079,6 +1085,8 @@
 #define ACTION_ADDTS_RSP                            1	/* ADDTS response */
 #define ACTION_DELTS                                2	/* DELTS */
 #define ACTION_SCHEDULE                             3	/* Schedule */
+#define ACTION_QOS_MAP_CONFIGURE                    4	/*Qos Map Configure*/
+
 
 #define ACTION_ADDTS_REQ_FRAME_LEN                  (24+3+63)	/* WMM TSPEC IE: 63 */
 #define ACTION_ADDTS_RSP_FRAME_LEN                  (24+4+63)	/* WMM Status Code: 1; WMM TSPEC IE: 63 */
@@ -1111,6 +1119,9 @@
 
 /* 7.4.7 Public Action frame details */
 #define ACTION_PUBLIC_20_40_COEXIST                 0	/* 20/40 BSS coexistence */
+
+#define ACTION_PUBLIC_VENDOR_SPECIFIC               9
+
 
 #if CFG_SUPPORT_802_11W
 /* SA Query Action frame (IEEE 802.11w/D8.0, 7.4.9) */
@@ -1147,6 +1158,10 @@
 #define ACTION_WNM_BSS_TRANSITION_MANAGEMENT_RSP    8
 
 #define ACTION_UNPROTECTED_WNM_TIMING_MEAS_LEN      12
+
+/* 8.5.23.1 VHT Action */
+#define ACTION_OPERATING_MODE_NOTIFICATION          2
+
 
 /* 3  --------------- WFA  frame body fields --------------- */
 #define VENDOR_OUI_WFA                              { 0x00, 0x50, 0xF2 }
@@ -1910,6 +1925,23 @@ typedef struct _WLAN_ACTION_FRAME {
 	UINT_8 ucActionDetails[1];	/* Action details */
 } __KAL_ATTRIB_PACKED__ WLAN_ACTION_FRAME, *P_WLAN_ACTION_FRAME;
 
+/* public Action frame format */
+typedef struct _WLAN_PUBLIC_VENDOR_ACTION_FRAME {
+	/* Action MAC header */
+	UINT_16 u2FrameCtrl;	/* Frame Control */
+	UINT_16 u2DurationID;	/* Duration */
+	UINT_8 aucDestAddr[MAC_ADDR_LEN];	/* DA */
+	UINT_8 aucSrcAddr[MAC_ADDR_LEN];	/* SA */
+	UINT_8 aucBSSID[MAC_ADDR_LEN];	/* BSSID */
+	UINT_16 u2SeqCtrl;	/* Sequence Control */
+	/* Action frame body */
+	UINT_8 ucCategory;	/* Category: should be 0x4 */
+	UINT_8 ucAction;	/* Action Value: should be 0x9 */
+	UINT_8 ucOUI[3];
+	UINT_8 ucSubType;
+	UINT_8 ucPubSubType;
+} __KAL_ATTRIB_PACKED__ WLAN_PUBLIC_VENDOR_ACTION_FRAME, *P_WLAN_PUBLIC_VENDOR_ACTION_FRAME;
+
 /* 7.4.1.1 Spectrum Measurement Request frame format */
 typedef struct _ACTION_SM_REQ_FRAME {
 	/* ADDTS Request MAC header */
@@ -2058,6 +2090,22 @@ typedef struct _ACTION_DELBA_FRAME_T {
 	UINT_16 u2ReasonCode;	/* 7.3.1.7 */
 } __KAL_ATTRIB_PACKED__ ACTION_DELBA_FRAME_T, *P_ACTION_DELBA_FRAME_T;
 
+/* 7.4.2.3 QOSMAPSET CONFIGURATE frame format */
+struct _ACTION_QOS_MAP_CONFIGURE_FRAME {
+	/* QOSMAP CONFIGURE MAC header */
+	UINT_16 u2FrameCtrl;	/* Frame Control */
+	UINT_16 u2DurationID;	/* Duration */
+	UINT_8 aucDestAddr[MAC_ADDR_LEN];	/* DA */
+	UINT_8 aucSrcAddr[MAC_ADDR_LEN];	/* SA */
+	UINT_8 aucBSSID[MAC_ADDR_LEN];	/* BSSID */
+	UINT_16 u2SeqCtrl;	/* Sequence Control */
+	/* DELTS frame body */
+	UINT_8 ucCategory;	/* Category */
+	UINT_8 ucAction;	/* Action Value */
+	UINT_8 qosMapSet[1];	/* qosmapset IE */
+};
+
+
 /* 7.4.6.1 Radio Measurement Request frame format */
 typedef struct _ACTION_RM_REQ_FRAME {
 	/* MAC header */
@@ -2179,6 +2227,52 @@ typedef struct _ACTION_UNPROTECTED_WNM_TIMING_MEAS_FRAME {
 	UINT_8 ucMaxToDErr;	/* Maximum of ToD Error [10ns] */
 	UINT_8 ucMaxToAErr;	/* Maximum of ToA Error [10ns] */
 } __KAL_ATTRIB_PACKED__ ACTION_UNPROTECTED_WNM_TIMING_MEAS_FRAME, *P_ACTION_UNPROTECTED_WNM_TIMING_MEAS_FRAME;
+
+/* 8.5.23.4 Operating Mode Notification frame format */
+typedef struct _ACTION_OP_MODE_NOTIFICATION_FRAME {
+	/* MAC header */
+	UINT_16 u2FrameCtrl;	/* Frame Control */
+	UINT_16 u2Duration;	/* Duration */
+	UINT_8 aucDestAddr[MAC_ADDR_LEN];	/* DA */
+	UINT_8 aucSrcAddr[MAC_ADDR_LEN];	/* SA */
+	UINT_8 aucBSSID[MAC_ADDR_LEN];	/* BSSID */
+	UINT_16 u2SeqCtrl;	/* Sequence Control */
+	/* Operating Mode Notification frame body */
+	UINT_8 ucCategory;	/* Category */
+	UINT_8 ucAction;	/* Action Value */
+	UINT_8 ucOperatingMode;	/* Operating Mode */
+} __KAL_ATTRIB_PACKED__ ACTION_OP_MODE_NOTIFICATION_FRAME, *P_ACTION_OP_MODE_NOTIFICATION_FRAME;
+
+/* 8.5.12.3 SM Power Save frame format */
+struct ACTION_SM_POWER_SAVE_FRAME {
+	/* MAC header */
+	UINT_16 u2FrameCtrl;	/* Frame Control */
+	UINT_16 u2Duration;	/* Duration */
+	UINT_8 aucDestAddr[MAC_ADDR_LEN];	/* DA */
+	UINT_8 aucSrcAddr[MAC_ADDR_LEN];	/* SA */
+	UINT_8 aucBSSID[MAC_ADDR_LEN];	/* BSSID */
+	UINT_16 u2SeqCtrl;	/* Sequence Control */
+	/* SM power save frame body */
+	UINT_8 ucCategory;	/* Category */
+	UINT_8 ucAction;	/* Action Value */
+	UINT_8 ucSmPowerCtrl;	/* SM Power Control (see 8.4.1.22) */
+} __KAL_ATTRIB_PACKED__;
+
+struct __KAL_ATTRIB_PACKED__ WMM_ACTION_TSPEC_FRAME {
+	/* DELTS MAC header */
+	UINT_16     u2FrameCtrl;                /* Frame Control */
+	UINT_16     u2DurationID;               /* Duration */
+	UINT_8      aucDestAddr[MAC_ADDR_LEN];  /* DA */
+	UINT_8      aucSrcAddr[MAC_ADDR_LEN];   /* SA */
+	UINT_8      aucBSSID[MAC_ADDR_LEN];     /* BSSID */
+	UINT_16     u2SeqCtrl;                  /* Sequence Control */
+	/* DELTS frame body */
+	UINT_8      ucCategory;                 /* Category, value is 17  */
+	UINT_8      ucAction;                   /* Action Value, value: 2, delts */
+	UINT_8		ucDlgToken;
+	UINT_8		ucStatusCode;
+	UINT_8		aucInfoElem[1];
+};
 
 /* 3 Information Elements from WFA. */
 typedef struct _IE_WFA_T {

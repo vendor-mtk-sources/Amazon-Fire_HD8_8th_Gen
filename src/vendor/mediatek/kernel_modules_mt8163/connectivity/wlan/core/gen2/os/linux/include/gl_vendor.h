@@ -704,8 +704,26 @@ typedef enum {
 	RTT_EVENT_COMPLETE,
 	GSCAN_EVENT_COMPLETE_SCAN,
 	GSCAN_EVENT_HOTLIST_RESULTS_LOST,
-	WIFI_EVENT_RSSI_MONITOR
+	WIFI_EVENT_RSSI_MONITOR,
+	WIFI_EVENT_ROANING_METRICS
 } WIFI_GSCAN_EVENT;
+/*add for fos7 roaming metrics*/
+#if CFG_SUPPORT_ROAMING
+#define OUI_AMAZON 0x007147
+enum amzn_nl80211_vendor_subcmds {
+	AMZN_NL80211_VENDOR_SUBCMD_UNSPEC = 0,
+	AMZN_NL80211_VENDOR_SUBCMD_ROAMING_INFO = 1,
+};
+
+typedef struct {
+	OS_SYSTIME u4RoamingTime;
+	UINT_8 ucHasRoamingScan;
+	UINT_8 eRoamingStatus;
+	UINT_8 roaming_type;
+	INT_8  oldApRssi;
+} PARAM_ROAMING_INFO_EVENT;
+#endif/*fos end*/
+
 
 /* From supplicant */
 enum QCA_NL80211_VENDOR_SUBCMDS {
@@ -797,7 +815,11 @@ int mtk_cfg80211_vendor_get_supported_feature_set(struct wiphy *wiphy, struct wi
 							const void *data, int data_len);
 
 int mtk_cfg80211_vendor_set_tx_power_scenario(struct wiphy *wiphy, struct wireless_dev *wdev,
-					const void *data, int data_len);
+
+/*add for fos7 roaming metrics */					const void *data, int data_len);
+#if CFG_SUPPORT_ROAMING
+int mtk_cfg80211_vendor_event_roaming_info(P_GLUE_INFO_T prGlueInfo);
+#endif
 
 int mtk_cfg80211_vendor_set_scan_mac_oui(struct wiphy *wiphy, struct wireless_dev *wdev,
 					const void *data, int data_len);

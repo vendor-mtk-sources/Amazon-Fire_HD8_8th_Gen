@@ -1755,4 +1755,7 @@ BOOLEAN glIsDataStatEnabled(VOID);
 VOID kalStatOtherPkts(P_GLUE_INFO_T prGlueInfo, BOOLEAN fgTx, UINT_16 u2EthType, UINT_8 ucIpProto);
 BOOLEAN kalTRxStatsPaused(VOID);
 #endif
+#if CFG_SUPPORT_ROAMING
+VOID kalIndicateRoamingMetrics(IN P_GLUE_INFO_T prGlueInfo);
+#endif
 #endif /* _GL_KAL_H */

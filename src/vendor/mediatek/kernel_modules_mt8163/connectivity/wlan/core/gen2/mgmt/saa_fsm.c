@@ -978,6 +978,36 @@ VOID saaFsmRunEventRxRespTimeOut(IN P_ADAPTER_T prAdapter, IN P_STA_RECORD_T prS
 		saaFsmSteps(prAdapter, prStaRec, eNextState, (P_SW_RFB_T) NULL);
 
 }				/* end of saaFsmRunEventRxRespTimeOut() */
+#if CFG_SUPPORT_RN
+static BOOLEAN saaCheckOverLoadRN(IN P_ADAPTER_T prAdapter, IN P_STA_RECORD_T prStaRec, IN ENUM_AA_STATE_T eFrmType)
+{
+	static UINT_32 u4OverLoadRN;
+	P_BSS_DESC_T prBssDesc = NULL;
+	P_BSS_INFO_T prAisBssInfo;
+
+	prAisBssInfo = &(prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX]);
+
+	if (!prAisBssInfo->fgDisConnReassoc) {
+		u4OverLoadRN = 0;
+		return FALSE;
+	}
+	if (prStaRec->u2StatusCode != STATUS_CODE_ASSOC_DENIED_AP_OVERLOAD)
+		return FALSE;
+	DBGLOG(SAA, INFO, "<SAA> eFrmType: %d, u4OverLoadRN times: %d\n", eFrmType, u4OverLoadRN);
+	if (u4OverLoadRN >= JOIN_MAX_RETRY_OVERLOAD_RN)
+		return FALSE;
+	prBssDesc = prAdapter->rWifiVar.rAisFsmInfo.prTargetBssDesc;
+	if (prBssDesc) {
+		aisAddBlacklist(prAdapter, prBssDesc, AIS_BLACK_LIST_FROM_DRIVER);
+		if (prBssDesc->prBlack)
+			prBssDesc->prBlack->u2AuthStatus = prStaRec->u2StatusCode;
+	} else
+		DBGLOG(SAA, INFO, "<drv> prBssDesc is NULL!\n");
+	u4OverLoadRN++;
+	aisFsmStateAbort(prAdapter, DISCONNECT_REASON_CODE_RADIO_LOST, TRUE);
+	return TRUE;
+}
+#endif
 
 /*----------------------------------------------------------------------------*/
 /*!
@@ -1050,7 +1080,11 @@ VOID saaFsmRunEventRxAuth(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 
 			/* Reset Send Auth/(Re)Assoc Frame Count */
 			prStaRec->ucTxAuthAssocRetryCount = 0;
-
+#if CFG_SUPPORT_RN
+			if (IS_STA_IN_AIS(prStaRec) &&
+				saaCheckOverLoadRN(prAdapter, prStaRec, SAA_STATE_SEND_AUTH1))
+				break;
+#endif
 			saaFsmSteps(prAdapter, prStaRec, eNextState, (P_SW_RFB_T) NULL);
 		}
 		break;
@@ -1180,7 +1214,11 @@ WLAN_STATUS saaFsmRunEventRxAssoc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRf
 			prStaRec->ucRCPI = prSwRfb->prHifRxHdr->ucRcpi;
 
 			eNextState = AA_STATE_IDLE;
-
+#if CFG_SUPPORT_RN
+			if (IS_STA_IN_AIS(prStaRec) &&
+				saaCheckOverLoadRN(prAdapter, prStaRec, SAA_STATE_SEND_ASSOC1))
+				break;
+#endif
 			saaFsmSteps(prAdapter, prStaRec, eNextState, prRetainedSwRfb);
 		}
 		break;
@@ -1192,6 +1230,114 @@ WLAN_STATUS saaFsmRunEventRxAssoc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRf
 	return rStatus;
 
 }				/* end of saaFsmRunEventRxAssoc() */
+
+/* for AOSP */
+/*----------------------------------------------------------------------------*/
+/*!
+* @brief This function will check and send disconnect message to AIS module
+*
+* @param[in]
+*
+* @retval
+*/
+/*----------------------------------------------------------------------------*/
+VOID
+saaSendDisconnectMsgHandler(IN P_ADAPTER_T prAdapter, IN P_STA_RECORD_T prStaRec, IN P_BSS_INFO_T prAisBssInfo,
+			    IN ENUM_AA_FRM_TYPE_T eFrmType)
+{
+	P_MSG_AIS_ABORT_T prAisAbortMsg;
+
+	prAisAbortMsg =
+		    (P_MSG_AIS_ABORT_T) cnmMemAlloc(prAdapter, RAM_TYPE_MSG, sizeof(MSG_AIS_ABORT_T));
+	if (!prAisAbortMsg)
+		return;
+
+	prAisAbortMsg->rMsgHdr.eMsgId = MID_SAA_AIS_FSM_ABORT;
+	prAisAbortMsg->fgDelayIndication = FALSE;
+	if (eFrmType == FRM_DEAUTH) {
+		prAisAbortMsg->ucReasonOfDisconnect = DISCONNECT_REASON_CODE_DEAUTHENTICATED;
+		cnmStaRecChangeState(prAdapter, prStaRec, STA_STATE_1);
+	}
+	else {
+		prAisAbortMsg->ucReasonOfDisconnect = DISCONNECT_REASON_CODE_DISASSOCIATED;
+		cnmStaRecChangeState(prAdapter, prStaRec, STA_STATE_2);
+	}
+	mboxSendMsg(prAdapter, MBOX_ID_0, (P_MSG_HDR_T) prAisAbortMsg, MSG_SEND_METHOD_BUF);
+	prAisBssInfo->u2DeauthReason = prStaRec->u2ReasonCode;
+}
+
+#if CFG_SUPPORT_RN
+static VOID saaAutoReConnect(IN P_ADAPTER_T prAdapter, IN P_STA_RECORD_T prStaRec,
+					IN P_BSS_INFO_T prAisBssInfo, IN ENUM_AA_FRM_TYPE_T eFrmType)
+{
+	OS_SYSTIME rCurrentTime;
+	P_CONNECTION_SETTINGS_T prConnSettings;
+
+	prConnSettings = &(prAdapter->rWifiVar.rConnSettings);
+	GET_CURRENT_SYSTIME(&rCurrentTime);
+
+	/*
+	 * TODO: maybe AP is in DFS channel, it wants to switch channels?
+	 * Wait for beacon timeout?
+	 * Need to do partial scan for the AP channel.
+	 */
+
+	if ((!CHECK_FOR_TIMEOUT(rCurrentTime, prAisBssInfo->rConnTime,
+		SEC_TO_SYSTIME(AIS_AUTORN_MIN_INTERVAL)) &&
+		/* maybe some packets are queued in HW, we will get many de-auth */
+		(prAisBssInfo->fgDisConnReassoc == FALSE)) ||
+		/* if encryption type is wep, no need to reconnect because AP may change it's password,
+		** so even we auto reconnect succuess, data link can not work
+		*/
+		prConnSettings->eEncStatus == ENUM_ENCRYPTION1_ENABLED) {
+		DBGLOG(SAA, INFO, "<drv> AP deauth ok 0x%x %x %x\n",
+				rCurrentTime, prAisBssInfo->rConnTime,
+				SEC_TO_SYSTIME(AIS_AUTORN_MIN_INTERVAL));
+		saaSendDisconnectMsgHandler(prAdapter, prStaRec, prAisBssInfo, eFrmType);
+	} else {
+		DBGLOG(SAA, INFO, "<drv> reassociate\n");
+		/* Report a lowest RSSI value to wlan framework, who will transfer it to modem and then
+		** modem can make a decision if need to switch to LTE data link.
+		*/
+		mtk_cfg80211_vendor_event_rssi_beyond_range(priv_to_wiphy(prAdapter->prGlueInfo),
+			prAdapter->prGlueInfo->prDevHandler->ieee80211_ptr, -127);
+
+		if (prAisBssInfo->fgDisConnReassoc == FALSE) {
+			P_BSS_DESC_T prBssDesc;
+			/* during reassoc, FW send null then we maybe get deauth again */
+			/* in the case, we will send deauth to supplicant, not here */
+
+			/* avoid re-scan */
+			prAisBssInfo->fgDisConnReassoc = TRUE;
+			prConnSettings->fgIsConnReqIssued = TRUE;
+			prConnSettings->fgIsDisconnectedByNonRequest = FALSE;
+			prAisBssInfo->u2DeauthReason = prStaRec->u2ReasonCode;
+			prBssDesc = prAdapter->rWifiVar.rAisFsmInfo.prTargetBssDesc;
+			if (prBssDesc) {
+				if (prStaRec->u2ReasonCode == REASON_CODE_DISASSOC_AP_OVERLOAD) {
+					struct AIS_BLACKLIST_ITEM *prBlackList = aisAddBlacklist(prAdapter, prBssDesc,
+									AIS_BLACK_LIST_FROM_DRIVER);
+
+					if (prBlackList)
+						prBlackList->u2DeauthReason = prStaRec->u2ReasonCode;
+				}
+			} else
+				DBGLOG(SAA, INFO, "<drv> prBssDesc is NULL!\n");
+
+			aisFsmStateAbort(prAdapter, DISCONNECT_REASON_CODE_RADIO_LOST, TRUE);
+		} else if (!CHECK_FOR_TIMEOUT(rCurrentTime, prAisBssInfo->rConnTime,
+				  SEC_TO_SYSTIME(AIS_AUTORN_MIN_INTERVAL + 10))) {
+
+			DBGLOG(SAA, INFO, "<drv> AP deauth ok under reassoc 0x%x %x %x\n",
+				rCurrentTime, prAisBssInfo->rConnTime, SEC_TO_SYSTIME(AIS_AUTORN_MIN_INTERVAL + 10));
+
+			prAisBssInfo->fgDisConnReassoc = FALSE;
+			saaSendDisconnectMsgHandler(prAdapter, prStaRec, prAisBssInfo, eFrmType);
+		}
+		/* else, we are reassociating, skip the deauth */
+	}
+}
+#endif
 
 /*----------------------------------------------------------------------------*/
 /*!
@@ -1239,37 +1385,12 @@ WLAN_STATUS saaFsmRunEventRxDeauth(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwR
 				if (prStaRec->u2ReasonCode <= REASON_CODE_BSS_SECURITY_CHANGE)
 					prAdapter->deauth_rx_count[prStaRec->u2ReasonCode]++;
 #endif
-				if (STA_STATE_3 == prStaRec->ucStaState) {
-					P_MSG_AIS_ABORT_T prAisAbortMsg;
-
-					/* NOTE(Kevin): Change state immediately to avoid starvation of
-					 * MSG buffer because of too many deauth frames before changing
-					 * the STA state.
-					 */
-					cnmStaRecChangeState(prAdapter, prStaRec, STA_STATE_1);
-
-					prAisAbortMsg =
-					    (P_MSG_AIS_ABORT_T) cnmMemAlloc(prAdapter, RAM_TYPE_MSG,
-									    sizeof(MSG_AIS_ABORT_T));
-					if (!prAisAbortMsg)
-						break;
-
-					prAisAbortMsg->rMsgHdr.eMsgId = MID_SAA_AIS_FSM_ABORT;
-					prAisAbortMsg->ucReasonOfDisconnect =
-					    DISCONNECT_REASON_CODE_DEAUTHENTICATED;
-					prAisAbortMsg->fgDelayIndication = FALSE;
-
-					mboxSendMsg(prAdapter,
-						    MBOX_ID_0,
-						    (P_MSG_HDR_T) prAisAbortMsg, MSG_SEND_METHOD_BUF);
-				} else {
-
-					/* TODO(Kevin): Joining Abort */
-				}
-				prAisBssInfo->u2DeauthReason = prStaRec->u2ReasonCode;
-
+#if CFG_SUPPORT_RN
+				saaAutoReConnect(prAdapter, prStaRec, prAisBssInfo, FRM_DEAUTH);
+#else
+				saaSendDisconnectMsgHandler(prAdapter, prStaRec, prAisBssInfo, FRM_DEAUTH);
+#endif
 			}
-
 		}
 #if CFG_ENABLE_WIFI_DIRECT
 		else if (prAdapter->fgIsP2PRegistered && IS_STA_IN_P2P(prStaRec)) {
@@ -1330,30 +1451,11 @@ WLAN_STATUS saaFsmRunEventRxDisassoc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prS
 							&prStaRec->u2ReasonCode) == WLAN_STATUS_SUCCESS) {
 
 				DBGLOG(SAA, INFO, "Disassoc reason = %d\n", prStaRec->u2ReasonCode);
-
-				if (STA_STATE_3 == prStaRec->ucStaState) {
-					P_MSG_AIS_ABORT_T prAisAbortMsg;
-
-					prAisAbortMsg =
-					    (P_MSG_AIS_ABORT_T) cnmMemAlloc(prAdapter, RAM_TYPE_MSG,
-									    sizeof(MSG_AIS_ABORT_T));
-					if (!prAisAbortMsg)
-						break;
-
-					prAisAbortMsg->rMsgHdr.eMsgId = MID_SAA_AIS_FSM_ABORT;
-					prAisAbortMsg->ucReasonOfDisconnect =
-					    DISCONNECT_REASON_CODE_DISASSOCIATED;
-					prAisAbortMsg->fgDelayIndication = FALSE;
-
-					mboxSendMsg(prAdapter,
-						    MBOX_ID_0,
-						    (P_MSG_HDR_T) prAisAbortMsg, MSG_SEND_METHOD_BUF);
-				} else {
-
-					/* TODO(Kevin): Joining Abort */
-				}
-				prAisBssInfo->u2DeauthReason = prStaRec->u2ReasonCode;
-
+#if CFG_SUPPORT_RN
+				saaAutoReConnect(prAdapter, prStaRec, prAisBssInfo, FRM_DISASSOC);
+#else
+				saaSendDisconnectMsgHandler(prAdapter, prStaRec, prAisBssInfo, FRM_DISASSOC);
+#endif
 			}
 
 		}

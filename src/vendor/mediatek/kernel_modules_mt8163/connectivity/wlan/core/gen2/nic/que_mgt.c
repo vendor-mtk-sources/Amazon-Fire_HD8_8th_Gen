@@ -473,6 +473,14 @@ Add per station flow control when STA is in PS
 ********************************************************************************
 */
 #include "precomp.h"
+#if CFG_SUPPORT_BA_OFFLOAD_METRIC
+#ifdef CONFIG_AMZN_METRICS_LOG
+#include <linux/amzn_metricslog.h>
+#endif
+#ifdef CONFIG_AMAZON_METRICS_LOG
+#include <linux/metricslog.h>
+#endif
+#endif
 
 /*******************************************************************************
 *                              C O N S T A N T S
@@ -854,9 +862,11 @@ VOID qmDeactivateStaRec(IN P_ADAPTER_T prAdapter, IN UINT_32 u4StaRecIdx)
 	/* 4 <3> Deactivate the STA_REC */
 	prStaRec->fgIsValid = FALSE;
 	prStaRec->fgIsInPS = FALSE;
+
 #if CFG_SUPPORT_802_11R
 	prStaRec->fgIsTxAllowed = FALSE;
 #endif
+	prStaRec->fgIsTxKeyReady = FALSE;
 
 	/* To reduce printk for IOT sta to connect all the time, */
 	/* DBGLOG(QM, INFO, ("QM: -STA[%ld]\n", u4StaRecIdx)); */
@@ -2817,6 +2827,15 @@ P_SW_RFB_T qmHandleRxPackets(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfbList
 			}
 		}
 #endif
+#if CFG_SUPPORT_FAKE_EAPOL_DETECTION
+		if (qmDetectRxInvalidEAPOL(prAdapter, prCurrSwRfb)) {
+			prCurrSwRfb->eDst = RX_PKT_DESTINATION_NULL;
+			QUEUE_INSERT_TAIL(&rReturnedQue, (P_QUE_ENTRY_T) prCurrSwRfb);
+			DBGLOG(QM, INFO,
+				"drop EAPOL packet not in sec mode\n");
+			continue;
+		}
+#endif
 		/* BAR frame */
 		if (HIF_RX_HDR_GET_BAR_FLAG(prHifRxHdr)) {
 			prCurrSwRfb->eDst = RX_PKT_DESTINATION_NULL;
@@ -3753,7 +3772,7 @@ qmAddRxBaEntry(IN P_ADAPTER_T prAdapter,
 
 VOID qmDelRxBaEntry(IN P_ADAPTER_T prAdapter, IN UINT_8 ucStaRecIdx, IN UINT_8 ucTid, IN BOOLEAN fgFlushToHost)
 {
-	P_RX_BA_ENTRY_T prRxBaEntry;
+	P_RX_BA_ENTRY_T prRxBaEntry = NULL;
 	P_STA_RECORD_T prStaRec;
 	P_SW_RFB_T prFlushedPacketList = NULL;
 	P_QUE_MGT_T prQM = &prAdapter->rQM;
@@ -3771,7 +3790,8 @@ VOID qmDelRxBaEntry(IN P_ADAPTER_T prAdapter, IN UINT_8 ucStaRecIdx, IN UINT_8 u
 #endif
 
 	/* Remove the BA entry for the same (STA, TID) tuple if it exists */
-	prRxBaEntry = prStaRec->aprRxReorderParamRefTbl[ucTid];
+	if (ucTid < CFG_RX_MAX_BA_TID_NUM)
+		prRxBaEntry = prStaRec->aprRxReorderParamRefTbl[ucTid];
 
 	if (prRxBaEntry) {
 
@@ -5690,3 +5710,298 @@ VOID qmMoveStaTxQueue(P_STA_RECORD_T prSrcStaRec, P_STA_RECORD_T prDstStaRec)
 	}
 }
 
+#if CFG_SUPPORT_FAKE_EAPOL_DETECTION
+/*----------------------------------------------------------------------------*/
+/*!
+ * \brief qmDetectRxInvalidEAPOL() is used for fake EAPOL checking.
+ *
+ * \param[in] prSwRfb        The RFB which is being processed.
+ *
+ * \return TRUE when we need to drop it
+ */
+/*----------------------------------------------------------------------------*/
+u_int8_t qmDetectRxInvalidEAPOL(IN P_ADAPTER_T prAdapter,
+	IN P_SW_RFB_T prSwRfb)
+{
+	uint8_t *pucPkt = NULL;
+	P_BSS_INFO_T prBssInfo;
+	uint16_t u2EtherType = 0;
+	u_int8_t fgDrop = FALSE;
+	P_STA_RECORD_T prStaRec = NULL;
+
+	if (prSwRfb->u2PacketLen <= ETHER_HEADER_LEN)
+		return FALSE;
+
+	pucPkt = prSwRfb->pvHeader;
+	if (!pucPkt)
+		return FALSE;
+	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
+
+	prBssInfo = &prAdapter->rWifiVar.arBssInfo[prStaRec->ucNetTypeIndex];
+
+	/* return FALSE if OP_MODE is not SAP */
+	if (!IS_BSS_ACTIVE(prBssInfo)
+		|| prBssInfo->eCurrentOPMode != OP_MODE_ACCESS_POINT)
+		return FALSE;
+
+	u2EtherType = (pucPkt[ETH_TYPE_LEN_OFFSET] << 8)
+			| (pucPkt[ETH_TYPE_LEN_OFFSET + 1]);
+
+	/* return FALSE if EtherType is not EAPOL */
+	if (u2EtherType != ETH_P_1X)
+		return FALSE;
+
+	if ((prSwRfb->eDst
+			== RX_PKT_DESTINATION_HOST_WITH_FORWARD
+		    || prSwRfb->eDst == RX_PKT_DESTINATION_FORWARD)) {
+		/* fgIsTxKeyReady is set by nicEventAddPkeyDone */
+		if (prStaRec->fgIsTxKeyReady != TRUE) {
+			fgDrop = TRUE;
+		}
+	}
+	DBGLOG(QM, TRACE,
+		"QM: eDst:%d TxKeyReady:%d fgDrop:%d\n",
+		prSwRfb->eDst, prStaRec->fgIsTxKeyReady,
+		fgDrop);
+
+	return fgDrop;
+}
+#endif /* CFG_SUPPORT_FAKE_EAPOL_DETECTION */
+
+#if CFG_SUPPORT_BA_OFFLOAD
+#if CFG_SUPPORT_BA_OFFLOAD_METRIC
+BOOLEAN qmIsNeedExcludeOui(IN PUINT_8 pucBuf)
+{
+	UINT_8 aucWfaOui[] = VENDOR_OUI_WFA;
+	UINT_8 aucWfaSpecOui[] = VENDOR_OUI_WFA_SPECIFIC;
+	UINT_8 aucEpigramOui[] = {0x00, 0x90, 0x4C};
+	BOOLEAN iRet = FALSE;
+	P_IE_VENDOR_HDR_T prVendorIE;
+	prVendorIE = (P_IE_VENDOR_HDR_T)pucBuf;
+	if (IE_LEN(pucBuf) <= 3) return TRUE;
+	if (((prVendorIE->aucOui[0]==aucWfaOui[0]) && (prVendorIE->aucOui[1]==aucWfaOui[1]) &&
+		(prVendorIE->aucOui[2]==aucWfaOui[2])) || ((prVendorIE->aucOui[0]==aucWfaSpecOui[0]) &&
+		(prVendorIE->aucOui[1]==aucWfaSpecOui[1]) && (prVendorIE->aucOui[2]==aucWfaSpecOui[2])) ||
+		((prVendorIE->aucOui[0]==aucEpigramOui[0]) && (prVendorIE->aucOui[1]==aucEpigramOui[1]) &&
+		(prVendorIE->aucOui[2]==aucEpigramOui[2]))) {
+		iRet = TRUE;
+	}
+	return iRet;
+}
+
+#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMZN_METRICS_LOG)
+void qmNotifyBAOffloadtMetic(IN P_ADAPTER_T prAdapter,
+	IN UINT_32 u4BACnt, IN enum ENUM_BAOFFLOAD_INDICATE_TYPE type)
+
+{
+	P_BSS_DESC_T prBssDesc;
+	P_UINT_8 key_str[] = {"BAR", "ADDBA", "DELBA"};
+	UINT_8 metadata_str[128];
+	UINT_8 aucOui[3]={0x00, 0x00, 0x00};
+	PUINT_8 pucIE;
+	UINT_16 u2IeLen;
+	UINT_16 u2IeOffSet = 0;
+	P_IE_VENDOR_HDR_T prVendorIE;;
+
+	int ret = -1;
+
+	DEBUGFUNC("qmNotifyBAOffloadtMetic()");
+	if (prAdapter == NULL) {
+		DBGLOG(QM, ERROR,
+			"qmNotifyBAOffloadtMetic() exception\n");
+		return;
+	}
+
+	if ((type >= BAOFFLOAD_INDICATE_NUM) || (0 == u4BACnt)) {
+		return;
+	}
+
+	prBssDesc = prAdapter->rWifiVar.rAisFsmInfo.prTargetBssDesc;
+	pucIE = &prBssDesc->aucIEBuf[0];
+	u2IeLen = prBssDesc->u2IELength;
+	kalMemSet(metadata_str, 0x00, sizeof(metadata_str));
+
+	IE_FOR_EACH(pucIE, u2IeLen, u2IeOffSet) {
+		if ((IE_ID(pucIE) == ELEM_ID_VENDOR) && (IE_LEN(pucIE) >3)) {
+			prVendorIE = (P_IE_VENDOR_HDR_T)pucIE;
+			if(qmIsNeedExcludeOui(pucIE)) continue;
+			kalMemCopy(aucOui, prVendorIE->aucOui, 3);
+			break;
+		}
+	}
+
+	sprintf(metadata_str,
+		"!{\"d\"#{\"metadata\"#\"%02x-%02x-%02x\"$\"metadata1\"#\"%02x-%02x-%02x\"}}",
+		prBssDesc->aucBSSID[0], prBssDesc->aucBSSID[1], prBssDesc->aucBSSID[2],
+		aucOui[0], aucOui[1],aucOui[2]);
+	ret = log_counter_to_vitals(ANDROID_LOG_INFO,
+		"Kernel vitals", "wifiKDM", "wifi-num-ba-offloading",
+		key_str[type], u4BACnt, "count", metadata_str, VITALS_NORMAL);
+	if (ret)
+		DBGLOG(QM, ERROR,
+			"log_counter_to_vitals fail: type:%s; buffer Cnt:%d\n",
+			key_str[type],u4BACnt);
+}
+#endif
+#endif
+void qmHandleBaOffloadBarFrame(IN P_ADAPTER_T prAdapter,
+	IN UINT_8 ucStaRecIdx, IN UINT_8 ucTid, IN UINT_32 u4SSN)
+{
+
+	P_STA_RECORD_T prStaRec;
+	P_RX_BA_ENTRY_T prReorderQueParm;
+	QUE_T rReturnedQue;
+	P_QUE_T prReturnedQue = &rReturnedQue;
+	P_QUE_T prReorderQue;
+	UINT_32 u4WinStart;
+	UINT_32 u4WinEnd;
+
+	DBGLOG(QM, TRACE, "[BAOFD]Receive BAR sta %d tid %d SSN %d!!\n",
+		ucStaRecIdx, ucTid, u4SSN);
+
+	QUEUE_INITIALIZE(prReturnedQue);
+
+	/* Check whether the STA_REC is activated */
+	prStaRec = cnmGetStaRecByIndex(prAdapter, ucStaRecIdx);
+	if (prStaRec == NULL) {
+		return;
+	}
+
+	/* Check whether the BA agreement exists */
+	prReorderQueParm = prStaRec->aprRxReorderParamRefTbl[ucTid];
+	if (!prReorderQueParm) {
+		DBGLOG(QM, WARN, "[BAOFD]BAR for a NULL ReorderQueParm!!\n");
+		return;
+	}
+
+	prReorderQue = &(prReorderQueParm->rReOrderQue);
+	u4WinStart = (UINT_32) (prReorderQueParm->u2WinStart);
+	u4WinEnd = (UINT_32) (prReorderQueParm->u2WinEnd);
+
+	if (qmCompareSnIsLessThan(u4WinStart, u4SSN)) {
+		prReorderQueParm->u2WinStart = (UINT_16) u4SSN;
+		prReorderQueParm->u2WinEnd =
+		    ((prReorderQueParm->u2WinStart) + (prReorderQueParm->u2WinSize) - 1) % MAX_SEQ_NO_COUNT;
+		DBGLOG(QM, TRACE,
+		       "QM:(BAR)[%d](%u){%d,%d}\n", ucTid, u4SSN, prReorderQueParm->u2WinStart,
+			prReorderQueParm->u2WinEnd);
+#if CFG_RX_BA_REORDERING_ENHANCEMENT
+		qmPopOutDueToFallAhead(prAdapter, prReorderQueParm, prReturnedQue);
+#else
+		qmPopOutDueToFallAhead(prReorderQueParm, prReturnedQue);
+#endif
+	} else {
+		DBGLOG(QM, TRACE, "QM:(BAR)(%d)(%u){%u,%u}\n", ucTid, u4SSN, u4WinStart, u4WinEnd);
+	}
+
+	if (QUEUE_IS_NOT_EMPTY(prReturnedQue)) {
+		DBGLOG(QM, TRACE, "[BAOFD]Need to Pop out packet\n");
+		QM_TX_SET_NEXT_MSDU_INFO(
+			(P_SW_RFB_T) QUEUE_GET_TAIL(
+			prReturnedQue), NULL);
+		wlanProcessQueuedSwRfb(prAdapter,
+			(P_SW_RFB_T)
+			QUEUE_GET_HEAD(prReturnedQue));
+	}
+}
+
+/*----------------------------------------------------------------------------*/
+/*!
+ * \brief Handle BAR/ADDBA/DELBA event
+ *
+ * \param[in] prAdapter Adapter pointer
+ * \param[in] prEvent The event packet from the FW
+ *
+ * \return (none)
+ */
+/*----------------------------------------------------------------------------*/
+void qmHandleEventBaOffloadIndication(IN P_ADAPTER_T prAdapter,
+	IN P_WIFI_EVENT_T prEvent)
+{
+	struct EVENT_BAOFFLOAD_INDICATE *prEventBaOffloadIndicate;
+	struct BAOFFLOAD_INDICATE_INFO sBaOffloadInfo;
+	P_STA_RECORD_T prStaRec;
+	UINT_8 ucStaRecIdx;
+	UINT_8 i;
+
+	ASSERT(prAdapter);
+
+	kalMemZero(&sBaOffloadInfo, sizeof(struct BAOFFLOAD_INDICATE_INFO));
+
+	prEventBaOffloadIndicate =
+		(struct EVENT_BAOFFLOAD_INDICATE *)(prEvent->aucBuffer);
+
+	DBGLOG(QM, TRACE,
+		"[BAOFD]Receive BAR/ADDBA/DELBA Event count %d!!\n",
+		prEventBaOffloadIndicate->ucEventCnt);
+#if CFG_SUPPORT_BA_OFFLOAD_METRIC
+	if (prEventBaOffloadIndicate->fgCacheBACntExist) {
+		for (i = 0; i < BAOFFLOAD_INDICATE_NUM; i++) {
+			qmNotifyBAOffloadtMetic(prAdapter,prEventBaOffloadIndicate->arCacheBACnt[i],
+				(enum ENUM_BAOFFLOAD_INDICATE_TYPE)i);
+		}
+	}
+#endif
+	for (i = 0; i < prEventBaOffloadIndicate->ucEventCnt; i++) {
+		kalMemCopy(&sBaOffloadInfo,
+			&prEventBaOffloadIndicate->sBaOffloadIndicateInfo[i],
+			sizeof(struct BAOFFLOAD_INDICATE_INFO));
+
+		ucStaRecIdx = sBaOffloadInfo.ucStaRecIdx;
+		prStaRec = QM_GET_STA_REC_PTR_FROM_INDEX(prAdapter, ucStaRecIdx);
+		if (!prStaRec) {
+			DBGLOG(QM, WARN, "[BAOFD]NULL STA_REC!!\n");
+			continue;
+		}
+
+		if (sBaOffloadInfo.ucTid >= CFG_RX_MAX_BA_TID_NUM) {
+			DBGLOG(QM, WARN, "[BAOFD]Invalid TID %d!!\n",
+				sBaOffloadInfo.ucTid);
+			continue;
+		}
+
+		switch (sBaOffloadInfo.eBaOffloadIndicateType) {
+		case BAOFFLOAD_INDICATE_BAR:
+			DBGLOG(QM, TRACE, "[BAOFD]Handle BAR %d %d %d!!\n",
+				ucStaRecIdx,
+				sBaOffloadInfo.ucTid,
+				sBaOffloadInfo.u4SSN);
+			qmHandleBaOffloadBarFrame(prAdapter,
+				ucStaRecIdx,
+				sBaOffloadInfo.ucTid,
+				sBaOffloadInfo.u4SSN);
+			break;
+
+		case BAOFFLOAD_INDICATE_ADDBA:
+			DBGLOG(QM, TRACE, "[BAOFD]Handle ADDBA %d %d %d %d!!\n",
+				ucStaRecIdx,
+				sBaOffloadInfo.ucTid,
+				sBaOffloadInfo.u4SSN,
+				sBaOffloadInfo.u4WinSize);
+			if (qmAddRxBaEntry(prAdapter,
+				ucStaRecIdx,
+				sBaOffloadInfo.ucTid,
+				sBaOffloadInfo.u4SSN,
+				(UINT_16)sBaOffloadInfo.u4WinSize) != TRUE) {
+				DBGLOG(QM, WARN,
+					   "QM: (Warning) Process ADDBA fail\n");
+			}
+			break;
+
+		case BAOFFLOAD_INDICATE_DELBA:
+			DBGLOG(QM, TRACE, "[BAOFD]Handle DELBA %d %d!!\n",
+				ucStaRecIdx,
+				sBaOffloadInfo.ucTid);
+			qmDelRxBaEntry(prAdapter,
+				ucStaRecIdx,
+				sBaOffloadInfo.ucTid,
+				TRUE);
+			break;
+
+		default:
+			DBGLOG(QM, WARN, "[BAOFD]Should Not Enter Here!!\n");
+			break;
+		}
+	}
+}
+#endif

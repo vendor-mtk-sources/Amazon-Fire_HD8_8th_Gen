@@ -1829,6 +1829,7 @@ P_BSS_DESC_T scanAddToBssDesc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 	UINT_8 ucPowerConstraint = 0;
 	P_IE_COUNTRY_T prCountryIE = NULL;
 #endif
+	P_IE_HT_CAP_T prHtCap;
 
 	ASSERT(prAdapter);
 	ASSERT(prSwRfb);
@@ -2148,6 +2149,15 @@ P_BSS_DESC_T scanAddToBssDesc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 #endif
 
 		case ELEM_ID_HT_CAP:
+			prHtCap = (P_IE_HT_CAP_T)pucIE;
+			/* end Support AP Selection */
+			if (IE_SIZE(pucIE) != (sizeof(IE_HT_CAP_T))) {
+				DBGLOG(SCN, WARN,
+					"HT_CAP wrong length(%zu)->(%d)\n",
+					(sizeof(IE_HT_CAP_T) - 2),
+					IE_LEN(prHtCap));
+				break;
+			}
 			prBssDesc->fgIsHTPresent = TRUE;
 			break;
 
@@ -3114,34 +3124,37 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN ENUM_NETWORK
 		if (rlmDomainIsLegalChannel(prAdapter, prBssDesc->eBand, prBssDesc->ucChannelNum) == FALSE)
 			continue;
 		/* 4 <2.5> Check if this BSS_DESC_T is stale */
-		if (CHECK_FOR_TIMEOUT(rCurrentTime, prBssDesc->rUpdateTime,
-				      SEC_TO_SYSTIME(SCN_BSS_DESC_REMOVE_TIMEOUT_SEC))) {
+#if CFG_SUPPORT_RN
+		if (prBssInfo->fgDisConnReassoc == FALSE)
+#endif
+			if (CHECK_FOR_TIMEOUT(rCurrentTime, prBssDesc->rUpdateTime,
+				SEC_TO_SYSTIME(SCN_BSS_DESC_REMOVE_TIMEOUT_SEC))) {
 
-			BOOLEAN fgIsNeedToCheckTimeout = TRUE;
+				BOOLEAN fgIsNeedToCheckTimeout = TRUE;
 
 #if CFG_SUPPORT_ROAMING
-			P_ROAMING_INFO_T prRoamingFsmInfo;
+				P_ROAMING_INFO_T prRoamingFsmInfo;
 
-			prRoamingFsmInfo = (P_ROAMING_INFO_T) &(prAdapter->rWifiVar.rRoamingInfo);
-			if ((prRoamingFsmInfo->eCurrentState == ROAMING_STATE_DISCOVERY) ||
-			    (prRoamingFsmInfo->eCurrentState == ROAMING_STATE_ROAM)) {
-				if (++prRoamingFsmInfo->RoamingEntryTimeoutSkipCount <
-				    ROAMING_ENTRY_TIMEOUT_SKIP_COUNT_MAX) {
-					fgIsNeedToCheckTimeout = FALSE;
-					DBGLOG(SCN, INFO, "SEARCH: Romaing skip SCN_BSS_DESC_REMOVE_TIMEOUT_SEC\n");
+				prRoamingFsmInfo = (P_ROAMING_INFO_T) &(prAdapter->rWifiVar.rRoamingInfo);
+				if ((prRoamingFsmInfo->eCurrentState == ROAMING_STATE_DISCOVERY) ||
+				    (prRoamingFsmInfo->eCurrentState == ROAMING_STATE_ROAM)) {
+					if (++prRoamingFsmInfo->RoamingEntryTimeoutSkipCount <
+					    ROAMING_ENTRY_TIMEOUT_SKIP_COUNT_MAX) {
+						fgIsNeedToCheckTimeout = FALSE;
+						DBGLOG(SCN, INFO, "SEARCH: Romaing skip SCN_BSS_DESC_REMOVE_TIMEOUT_SEC\n");
+					}
+				}
+#endif
+
+				if (fgIsNeedToCheckTimeout == TRUE) {
+#ifdef CONFIG_MTK_WIFI_LOGGING_REDUCTION
+					DBGLOG(SCN, TRACE, "Ignore stale bss %pM\n", prBssDesc->aucBSSID);
+#else
+					DBGLOG(SCN, INFO, "Ignore stale bss %pM\n", prBssDesc->aucBSSID);
+#endif
+					continue;
 				}
 			}
-#endif
-
-			if (fgIsNeedToCheckTimeout == TRUE) {
-#ifdef CONFIG_MTK_WIFI_LOGGING_REDUCTION
-				DBGLOG(SCN, TRACE, "Ignore stale bss %pM\n", prBssDesc->aucBSSID);
-#else
-				DBGLOG(SCN, INFO, "Ignore stale bss %pM\n", prBssDesc->aucBSSID);
-#endif
-				continue;
-			}
-		}
 		/* 4 <3> Check if reach the excessive join retry limit */
 		/* NOTE(Kevin): STA_RECORD_T is recorded by TA. */
 		prStaRec = cnmGetStaRecByAddress(prAdapter, (UINT_8) eNetTypeIndex, prBssDesc->aucSrcAddr);

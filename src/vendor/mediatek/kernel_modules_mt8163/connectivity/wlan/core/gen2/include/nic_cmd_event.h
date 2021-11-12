@@ -878,9 +878,7 @@ typedef enum _ENUM_EVENT_ID_T {
 	EVENT_ID_GSCAN_SCAN_AVAILABLE = 0x35,
 	EVENT_ID_GSCAN_RESULT = 0x36,
 	EVENT_ID_BATCH_RESULT = 0x37,
-#if CFG_SUPPORT_802_11R
-		EVENT_ID_ADD_PKEY_DONE = 0x44, /* 0x44 (Unsolicited) */
-#endif
+	EVENT_ID_ADD_PKEY_DONE = 0x44, /* 0x44 (Unsolicited) */
 
 #if CFG_RX_BA_REORDERING_ENHANCEMENT
 	EVENT_ID_CHECK_REORDER_BUBBLE = 0x39,
@@ -891,7 +889,9 @@ typedef enum _ENUM_EVENT_ID_T {
 
 	EVENT_ID_TDLS = 0x80,
 	EVENT_ID_STATS_ENV = 0x81,
-
+#if CFG_SUPPORT_BA_OFFLOAD
+	EVENT_ID_BAOFFLOAD_INDICATION = 0x91,
+#endif
 	EVENT_ID_RSSI_MONITOR = 0xA1,
 
 #if CFG_SUPPORT_BUILD_DATE_CODE
@@ -1859,14 +1859,6 @@ typedef struct _EVENT_AP_OBSS_STATUS_T {
 	UINT_8 aucReserved[2];
 } EVENT_AP_OBSS_STATUS_T, *P_EVENT_AP_OBSS_STATUS_T;
 
-#if CFG_SUPPORT_802_11R
-struct EVENT_ADD_KEY_DONE_INFO {
-	UINT_8 ucNetworkType;
-	UINT_8 ucReserved;
-	UINT_8 aucStaAddr[MAC_ADDR_LEN];
-};
-#endif
-
 typedef struct _CMD_EDGE_TXPWR_LIMIT_T {
 	INT_8 cBandEdgeMaxPwrCCK;
 	INT_8 cBandEdgeMaxPwrOFDM20;
@@ -2305,6 +2297,14 @@ typedef struct _WIFI_SYSTEM_SUSPEND_CMD_T {
 	BOOLEAN fgIsSystemSuspend;
 	UINT_8 reserved[3];
 } WIFI_SYSTEM_SUSPEND_CMD_T, *P_WIFI_SYSTEM_SUSPEND_CMD_T;
+
+/* event of add key done for port control */
+typedef struct _EVENT_ADD_KEY_DONE_INFO {
+	UINT_8 ucBSSIndex;
+	UINT_8 ucKeyId;
+	UINT_8 aucStaAddr[6];
+} EVENT_ADD_KEY_DONE_INFO, *P_EVENT_ADD_KEY_DONE_INFO;
+
 
 /*******************************************************************************
 *                            P U B L I C   D A T A

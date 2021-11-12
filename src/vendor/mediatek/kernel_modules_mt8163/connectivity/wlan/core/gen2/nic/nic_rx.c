@@ -889,6 +889,51 @@ static PROCESS_RX_MGT_FUNCTION apfnProcessRxMgtFrame[MAX_NUM_OF_FC_SUBTYPES] = {
 };
 #endif
 
+static const struct ACTION_FRAME_SIZE_MAP arActionFrameReservedLen[] = {
+	{(uint16_t)(CATEGORY_QOS_ACTION | ACTION_QOS_MAP_CONFIGURE << 8),
+	 sizeof(struct _ACTION_QOS_MAP_CONFIGURE_FRAME)},
+	{(uint16_t)(CATEGORY_PUBLIC_ACTION | ACTION_PUBLIC_20_40_COEXIST << 8),
+	 OFFSET_OF(ACTION_20_40_COEXIST_FRAME, rChnlReport)},
+	{(uint16_t)
+	 (CATEGORY_PUBLIC_ACTION | ACTION_PUBLIC_VENDOR_SPECIFIC << 8),
+	 sizeof(WLAN_PUBLIC_VENDOR_ACTION_FRAME)},
+	{(uint16_t)(CATEGORY_HT_ACTION | ACTION_HT_NOTIFY_CHANNEL_WIDTH << 8),
+	 sizeof(ACTION_NOTIFY_CHNL_WIDTH_FRAME)},
+	{(uint16_t)(CATEGORY_HT_ACTION | ACTION_HT_SM_POWER_SAVE << 8),
+	 sizeof(struct ACTION_SM_POWER_SAVE_FRAME)},
+#if CFG_SUPPORT_802_11W
+	{(uint16_t)(CATEGORY_SA_QUERT_ACTION | ACTION_SA_QUERY_REQUEST << 8),
+	 sizeof(ACTION_SA_QUERY_FRAME)},
+#endif
+	{(uint16_t)
+	 (CATEGORY_WNM_ACTION | ACTION_WNM_TIMING_MEASUREMENT_REQUEST << 8),
+	 sizeof(ACTION_WNM_TIMING_MEAS_REQ_FRAME)},
+	{(uint16_t)(CATEGORY_SPEC_MGT | ACTION_MEASUREMENT_REQ << 8),
+	 sizeof(ACTION_SM_REQ_FRAME)},
+	{(uint16_t)(CATEGORY_SPEC_MGT | ACTION_MEASUREMENT_REPORT << 8),
+	 sizeof(ACTION_SM_REQ_FRAME)},
+	{(uint16_t)(CATEGORY_SPEC_MGT | ACTION_TPC_REQ << 8),
+	 sizeof(ACTION_SM_REQ_FRAME)},
+	{(uint16_t)(CATEGORY_SPEC_MGT | ACTION_TPC_REPORT << 8),
+	 sizeof(ACTION_SM_REQ_FRAME)},
+	{(uint16_t)(CATEGORY_SPEC_MGT | ACTION_CHNL_SWITCH << 8),
+	 sizeof(ACTION_SM_REQ_FRAME)},
+	{(uint16_t)
+	 (CATEGORY_VHT_ACTION | ACTION_OPERATING_MODE_NOTIFICATION << 8),
+	 sizeof(ACTION_OP_MODE_NOTIFICATION_FRAME)},
+	{(uint16_t)(CATEGORY_RM_ACTION | RM_ACTION_RM_REQUEST << 8),
+	 sizeof(ACTION_RM_REQ_FRAME)},
+#if CFG_SUPPORT_802_11K
+	{(uint16_t)(CATEGORY_RM_ACTION | RM_ACTION_REIGHBOR_RESPONSE << 8),
+	 sizeof(struct ACTION_NEIGHBOR_REPORT_FRAME)},
+#endif
+	{(uint16_t)(CATEGORY_WME_MGT_NOTIFICATION | ACTION_ADDTS_RSP << 8),
+	 sizeof(struct WMM_ACTION_TSPEC_FRAME)},
+	{(uint16_t)(CATEGORY_WME_MGT_NOTIFICATION | ACTION_DELTS << 8),
+	 sizeof(struct WMM_ACTION_TSPEC_FRAME)},
+};
+
+
 /*******************************************************************************
 *                                 M A C R O S
 ********************************************************************************
@@ -1919,7 +1964,34 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 		qmHandleEventDropByFW(prAdapter, prEvent);
 		break;
 #endif
+	case EVENT_ID_ADD_PKEY_DONE:
+		{
+			P_EVENT_ADD_KEY_DONE_INFO prAddKeyDone;
+			P_STA_RECORD_T prStaRec;
+			UINT_8 ucKeyId = 0;
 
+			prAddKeyDone = (P_EVENT_ADD_KEY_DONE_INFO) (prEvent->aucBuffer);
+			ucKeyId = prAddKeyDone->ucKeyId;
+
+			DBGLOG(RSN, TRACE,
+			       "EVENT_ID_ADD_PKEY_DONE BSSIDX=%d KeyID=%d " MACSTR "\n",
+			       prAddKeyDone->ucBSSIndex, prAddKeyDone->ucKeyId, MAC2STR(prAddKeyDone->aucStaAddr));
+
+			prStaRec = cnmGetStaRecByAddress(prAdapter, prAddKeyDone->ucBSSIndex, prAddKeyDone->aucStaAddr);
+
+			if (prStaRec) {
+				DBGLOG(RSN, EVENT, "STA " MACSTR " Add Key Done KeyID=%d!!\n",
+				       MAC2STR(prStaRec->aucMacAddr), ucKeyId);
+				prStaRec->fgIsTxKeyReady = TRUE;
+#if CFG_SUPPORT_802_11R
+                                if (prStaRec->fgIsValid) {
+                                        prStaRec->fgIsTxAllowed = TRUE;
+                                }
+                                DBGLOG(RSN, EVENT, "Add Key Done, Tx Allowed %d\n", prStaRec->fgIsTxAllowed);
+#endif
+			}
+		}
+		break;
 	case EVENT_ID_LINK_QUALITY:
 #if CFG_ENABLE_WIFI_DIRECT && CFG_SUPPORT_P2P_RSSI_QUERY
 		if (prEvent->u2PacketLen == EVENT_HDR_SIZE + sizeof(EVENT_LINK_QUALITY_EX)) {
@@ -2582,27 +2654,10 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 				 (UINT8 *) prEvent->aucBuffer, (UINT32) (prEvent->u2PacketLen - 8));
 		break;
 #endif /* CFG_SUPPORT_STATISTICS */
-
-#if CFG_SUPPORT_802_11R
-		case EVENT_ID_ADD_PKEY_DONE:
-		{
-			struct EVENT_ADD_KEY_DONE_INFO *prKeyDone = (struct EVENT_ADD_KEY_DONE_INFO *)prEvent->aucBuffer;
-			P_STA_RECORD_T prStaRec = NULL;
-
-			prStaRec = cnmGetStaRecByAddress(prAdapter, prKeyDone->ucNetworkType, prKeyDone->aucStaAddr);
-
-			if (!prStaRec) {
-				DBGLOG(RX, INFO, "AddPKeyDone, Net %d, Addr %pM, StaRec is NULL\n",
-					prKeyDone->ucNetworkType, prKeyDone->aucStaAddr);
-				break;
-			}
-			prStaRec->fgIsTxKeyReady = TRUE;
-			if (prStaRec->fgIsValid)
-				prStaRec->fgIsTxAllowed = TRUE;
-			DBGLOG(RX, INFO, "AddPKeyDone, Net %d, Addr %pM, Tx Allowed %d\n",
-				prKeyDone->ucNetworkType, prKeyDone->aucStaAddr, prStaRec->fgIsTxAllowed);
-			break;
-		}
+#if CFG_SUPPORT_BA_OFFLOAD
+	case EVENT_ID_BAOFFLOAD_INDICATION:
+		qmHandleEventBaOffloadIndication(prAdapter, prEvent);
+		break;
 #endif
 	default:
 		prCmdInfo = nicGetPendingCmdInfo(prAdapter, prEvent->ucSeqNum);
@@ -2844,6 +2899,26 @@ static VOID nicRxCheckWakeupReason(P_SW_RFB_T prSwRfb)
 }
 #endif
 
+BOOLEAN nicRxIsNeedCheckNextRFB(IN P_ADAPTER_T prAdapter,
+	IN P_SW_RFB_T prSwRfb)
+{
+	P_WIFI_EVENT_T prEvent;
+
+	ASSERT(prAdapter);
+	ASSERT(prSwRfb);
+
+	if (prSwRfb->ucPacketType == HIF_RX_PKT_TYPE_EVENT) {
+		prEvent = (P_WIFI_EVENT_T)prSwRfb->pucRecvBuff;
+		if (prEvent->ucEID == EVENT_ID_BAOFFLOAD_INDICATION) {
+			DBGLOG(RX, TRACE,
+				"Need to check next RFB!\n");
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
 /*----------------------------------------------------------------------------*/
 /*!
 * @brief nicProcessRFBs is used to process RFBs in the rReceivedRFBList queue.
@@ -2886,8 +2961,12 @@ VOID nicRxProcessRFBs(IN P_ADAPTER_T prAdapter)
 				glLogSuspendResumeTime(FALSE);
 				glNotifyAppTxRx(prAdapter->prGlueInfo, NULL);
 			}
-			if (kalIsWakeupByWlan(prAdapter))
-				nicRxCheckWakeupReason(prSwRfb);
+			if (test_bit(SUSPEND_FLAG_FOR_WAKEUP_REASON,
+					&prAdapter->ulSuspendFlag) &&
+				(nicRxIsNeedCheckNextRFB(prAdapter, prSwRfb) == FALSE)) {
+				if (kalIsWakeupByWlan(prAdapter))
+					nicRxCheckWakeupReason(prSwRfb);
+			}
 #endif
 			switch (prSwRfb->ucPacketType) {
 			case HIF_RX_PKT_TYPE_DATA:
@@ -3888,6 +3967,41 @@ WLAN_STATUS nicRxFlush(IN P_ADAPTER_T prAdapter)
 	return WLAN_STATUS_SUCCESS;
 }
 
+BOOLEAN nicIsActionFrameValid(IN P_SW_RFB_T prSwRfb)
+{
+	P_WLAN_ACTION_FRAME prActFrame;
+	UINT_16 u2ActionIndex = 0, u2ExpectedLen = 0;
+	UINT_32 u4Idx, u4Size;
+
+	if (prSwRfb->u2PacketLen < sizeof(WLAN_ACTION_FRAME) - 1)
+		return FALSE;
+	prActFrame = (WLAN_ACTION_FRAME *) prSwRfb->pvHeader;
+
+	DBGLOG(RSN, TRACE, "Action frame category=%d action=%d\n",
+	       prActFrame->ucCategory, prActFrame->ucAction);
+
+	u2ActionIndex = prActFrame->ucCategory | prActFrame->ucAction << 8;
+	u4Size = sizeof(arActionFrameReservedLen) /
+		 sizeof(struct ACTION_FRAME_SIZE_MAP);
+	for (u4Idx = 0; u4Idx < u4Size; u4Idx++) {
+		if (u2ActionIndex == arActionFrameReservedLen[u4Idx].u2Index) {
+			u2ExpectedLen = (uint16_t)
+				arActionFrameReservedLen[u4Idx].len;
+			DBGLOG(RSN, LOUD,
+				"Found expected len of incoming action frame:%d\n",
+				u2ExpectedLen);
+			break;
+		}
+	}
+	if (u2ExpectedLen != 0 && prSwRfb->u2PacketLen < u2ExpectedLen) {
+		DBGLOG(RSN, INFO,
+			"Received an abnormal action frame: packet len/expected len:%d/%d\n",
+			prSwRfb->u2PacketLen, u2ExpectedLen);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 /*----------------------------------------------------------------------------*/
 /*!
 * @brief
@@ -3904,7 +4018,7 @@ WLAN_STATUS nicRxProcessActionFrame(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSw
 	ASSERT(prAdapter);
 	ASSERT(prSwRfb);
 
-	if (prSwRfb->u2PacketLen < sizeof(WLAN_ACTION_FRAME) - 1)
+	if (!nicIsActionFrameValid(prSwRfb))
 		return WLAN_STATUS_INVALID_PACKET;
 	prActFrame = (P_WLAN_ACTION_FRAME) prSwRfb->pvHeader;
 	DBGLOG(RX, INFO, "Category %u\n", prActFrame->ucCategory);

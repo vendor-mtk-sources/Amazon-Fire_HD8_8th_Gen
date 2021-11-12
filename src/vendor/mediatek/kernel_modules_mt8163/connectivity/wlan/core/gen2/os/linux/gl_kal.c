@@ -1762,6 +1762,7 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 
 			/* CFG80211 Indication */
 			if (eStatus == WLAN_STATUS_ROAM_OUT_FIND_BEST) {
+				kalIndicateRoamingMetrics(prGlueInfo);
 				cfg80211_roamed_bss(prGlueInfo->prDevHandler,
 						    bss,
 						    prGlueInfo->aucReqIe,
@@ -4657,6 +4658,20 @@ VOID kalHandleHifBusSuspend(VOID)
 	up(&g_halt_sem);
 	DBGLOG(INIT, TRACE, "FW own %d while host is going to sleep\n", prAdapter->fgIsFwOwn);
 }
+
+/*add roaming metrics for fos7*/
+#if CFG_SUPPORT_ROAMING
+VOID kalIndicateRoamingMetrics(IN P_GLUE_INFO_T prGlueInfo)
+{
+	int u2RoamingMetricStatus = 0;
+
+	u2RoamingMetricStatus = mtk_cfg80211_vendor_event_roaming_info(prGlueInfo);
+	if (u2RoamingMetricStatus != 0)
+		DBGLOG(INIT, INFO, "send roaming success metrics fail status =%d",
+			u2RoamingMetricStatus);
+}
+#endif
+
 
 #if CFG_SUPPORT_WAKEUP_REASON_DEBUG
 VOID kalScheduleCommonWork(struct DRV_COMMON_WORK_T *prDrvWork, struct DRV_COMMON_WORK_FUNC_T *prWork)

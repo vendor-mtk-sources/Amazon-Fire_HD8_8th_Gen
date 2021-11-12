@@ -1675,6 +1675,7 @@ int mtk_cfg80211_remain_on_channel(struct wiphy *wiphy,
 		prMsgChnlReq->u4DurationMs = duration;
 
 		prMsgChnlReq->ucChannelNum = nicFreq2ChannelNum(chan->center_freq * 1000);
+		prMsgChnlReq->eSco = 0;
 
 		switch (chan->band) {
 		case NL80211_BAND_2GHZ:

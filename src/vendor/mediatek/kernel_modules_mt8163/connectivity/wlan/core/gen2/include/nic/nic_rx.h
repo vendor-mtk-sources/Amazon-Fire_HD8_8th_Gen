@@ -323,6 +323,11 @@ typedef struct _RX_MAILBOX_T {
 } RX_MAILBOX_T, *P_RX_MAILBOX_T;
 
 typedef WLAN_STATUS(*PROCESS_RX_MGT_FUNCTION) (P_ADAPTER_T, P_SW_RFB_T);
+struct ACTION_FRAME_SIZE_MAP {
+	uint16_t u2Index; /* High byte for Action, low byte for Category */
+	size_t len;
+};
+
 
 /*******************************************************************************
 *                            P U B L I C   D A T A
@@ -352,6 +357,10 @@ typedef WLAN_STATUS(*PROCESS_RX_MGT_FUNCTION) (P_ADAPTER_T, P_SW_RFB_T);
 
 #define RX_STATUS_TEST_MORE_FLAG(flag) \
 	((BOOLEAN)((flag & RX_STATUS_FLAG_MORE_PACKET) ? TRUE : FALSE))
+#define RXM_IS_FRAGMENT_FRAME(_u2FrameCtrl) \
+	(((_u2FrameCtrl & MASK_FC_MORE_FRAG)))
+#define RXM_IS_MORE_DATA(_u2FrameCtrl) \
+	(((_u2FrameCtrl & MASK_FC_MORE_DATA) == MASK_FC_MORE_DATA) ? TRUE : FALSE)
 
 /*******************************************************************************
 *                   F U N C T I O N   D E C L A R A T I O N S

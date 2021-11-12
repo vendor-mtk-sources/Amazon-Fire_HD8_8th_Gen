@@ -1164,6 +1164,10 @@ static const struct nl80211_vendor_cmd_info mtk_wlan_vendor_events[] = {
 		.vendor_id = GOOGLE_OUI,
 		.subcmd = WIFI_EVENT_RSSI_MONITOR
 	},
+	{
+		.vendor_id = OUI_AMAZON,
+		.subcmd = AMZN_NL80211_VENDOR_SUBCMD_ROAMING_INFO
+	},
 };
 
 /* There isn't a lot of sense in it, but you can transmit anything you like */

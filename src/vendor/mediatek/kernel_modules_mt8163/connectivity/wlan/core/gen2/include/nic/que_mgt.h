@@ -712,7 +712,14 @@ typedef struct _IE_WMM_HDR_T {
 	UINT_8 ucVersion;	/* Version */
 	UINT_8 aucBody[1];	/* IE body */
 } IE_WMM_HDR_T, *P_IE_WMM_HDR_T;
-
+#if CFG_SUPPORT_BA_OFFLOAD_METRIC
+typedef struct _IE_VENDOR_HDR_T {
+	UINT_8 ucId;		/* Element ID */
+	UINT_8 ucLength;	/* Length */
+	UINT_8 aucOui[3];	/* OUI */
+	UINT_8 aucBody[1];	/* IE body */
+} IE_VENDOR_HDR_T, *P_IE_VENDOR_HDR_T;
+#endif
 typedef struct _AC_QUE_PARMS_T {
 	UINT_16 u2CWmin;	/*!< CWmin */
 	UINT_16 u2CWmax;	/*!< CWmax */
@@ -801,6 +808,35 @@ typedef struct _EVENT_PACKET_DROP_BY_FW_T {
 	UINT_16 u2StartSSN;
 	UINT_8 au1BitmapSSN[QM_RX_MAX_FW_DROP_SSN_SIZE];
 } EVENT_PACKET_DROP_BY_FW_T, *P_EVENT_PACKET_DROP_BY_FW_T;
+#endif
+
+#if CFG_SUPPORT_BA_OFFLOAD
+enum ENUM_BAOFFLOAD_INDICATE_TYPE
+{
+	BAOFFLOAD_INDICATE_BAR = 0,
+	BAOFFLOAD_INDICATE_ADDBA,
+	BAOFFLOAD_INDICATE_DELBA,
+	BAOFFLOAD_INDICATE_NUM
+};
+
+struct BAOFFLOAD_INDICATE_INFO
+{
+	enum ENUM_BAOFFLOAD_INDICATE_TYPE eBaOffloadIndicateType;
+	UINT_32 u4WinSize;
+	UINT_32 ucTid;
+	UINT_16 u4SSN;
+	UINT_8 ucStaRecIdx;
+};
+
+struct EVENT_BAOFFLOAD_INDICATE
+{
+	struct BAOFFLOAD_INDICATE_INFO sBaOffloadIndicateInfo[CFG_RX_MAX_BA_TID_NUM];
+	UINT_8 ucEventCnt;
+#if CFG_SUPPORT_BA_OFFLOAD_METRIC
+	BOOLEAN fgCacheBACntExist;
+	UINT_32 arCacheBACnt[BAOFFLOAD_INDICATE_NUM];
+#endif
+};
 #endif
 
 /*******************************************************************************
@@ -1063,6 +1099,18 @@ VOID qmHandleRxIpPackets(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb, UINT_16 *fla
 VOID qmHandleMissTimeout(IN P_RX_BA_ENTRY_T prReorderQueParm);
 #endif
 VOID qmMoveStaTxQueue(P_STA_RECORD_T prSrcStaRec, P_STA_RECORD_T prDstStaRec);
+
+#if CFG_SUPPORT_FAKE_EAPOL_DETECTION
+u_int8_t qmDetectRxInvalidEAPOL(IN P_ADAPTER_T prAdapter,
+	IN P_SW_RFB_T prSwRfb);
+
+#endif /* CFG_SUPPORT_FAKE_EAPOL_DETECTION */
+
+#if CFG_SUPPORT_BA_OFFLOAD
+VOID qmHandleEventBaOffloadIndication(IN P_ADAPTER_T prAdapter,
+	IN P_WIFI_EVENT_T prEvent);
+#endif
+
 /*******************************************************************************
 *                              F U N C T I O N S
 ********************************************************************************
