@@ -170,6 +170,12 @@ extern UINT_32 u4DebugModule;
 #define DBG_PRINTF_64BIT_DEC    "I64d"
 
 #endif
+
+#ifdef CONFIG_AMAZON_MINERVA_METRICS_LOG
+#define MINERVA_WIFI_GROUP_ID	"30pfp83p"
+#define MINERVA_WIFI_SCHEMA_ID	"ir04/2/03330400"
+#endif
+
 /*******************************************************************************
 *                             D A T A   T Y P E S
 ********************************************************************************
@@ -468,11 +474,6 @@ extern PINT_8 g_buf_p;
 VOID dumpMemory8(IN PUINT_8 pucStartAddr, IN UINT_32 u4Length);
 
 VOID dumpMemory32(IN PUINT_32 pu4StartAddr, IN UINT_32 u4Length);
-#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMZN_METRICS_LOG)
-int minerva_log_counter_to_vitals(android_LogPriority priority,
-		const char *source, const char *key,
-		long counter_value, const char *metadata);
-#endif
 
 /*******************************************************************************
 *                              F U N C T I O N S

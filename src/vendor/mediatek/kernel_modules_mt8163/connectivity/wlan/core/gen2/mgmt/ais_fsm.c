@@ -1819,11 +1819,10 @@ VOID aisFsmStateAbort_IBSS(IN P_ADAPTER_T prAdapter)
 }
 #endif /* CFG_SUPPORT_ADHOC */
 
-#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMZN_METRICS_LOG)
 void aisNotifyAutoReconnectMetic(IN P_BSS_INFO_T prAisBssInfo,
 	IN UINT_16 u2ReasonCode, UINT_8 bConnect)
-
 {
+#ifdef CONFIG_AMAZON_MINERVA_METRICS_LOG
 	UINT_8 key_str[2] = {'S','\0'};
 	UINT_8 metadata_str[128];
 	UINT_16 metadata;
@@ -1831,7 +1830,6 @@ void aisNotifyAutoReconnectMetic(IN P_BSS_INFO_T prAisBssInfo,
 	UINT_16 metadata2;
 	int ret = -1;
 	int minerva_ret = -1;
-	uint8_t metadata_str2[128];
 
 	DEBUGFUNC("aisNotifyAutoReconnectMetic()");
 	if (!prAisBssInfo) {
@@ -1844,38 +1842,33 @@ void aisNotifyAutoReconnectMetic(IN P_BSS_INFO_T prAisBssInfo,
 	metadata1 = prAisBssInfo->ucPrimaryChannel;
 	metadata2 = u2ReasonCode;
 	kalMemSet(metadata_str, 0x00, 128);
-	kalMemSet(metadata_str2, 0x00, 128);
+
 	if (bConnect == TRUE) {
 		key_str [0]= 'S';
-		sprintf(metadata_str,
-			"!{\"d\"#{\"metadata\"#\"%d\"$\"metadata1\"#\"%d\"}}", metadata, metadata1);
-		sprintf(metadata_str2,
-			"metadata=%d;SY,metadata1=%d;SY:", metadata, metadata1);
+		ret = sprintf(metadata_str,
+			"\"metadata\"#\"%d\"$\"metadata1\"#\"%d\"", metadata, metadata1);
 	}
 	else {
 		key_str [0]= 'F';
-		sprintf(metadata_str,
-			"!{\"d\"#{\"metadata\"#\"%d\"$\"metadata1\"#\"%d\"$\"metadata2\"#\"%d\"}}",
-			metadata, metadata1, metadata2);
-		sprintf(metadata_str2,
-			"metadata=%d;SY,metadata1=%d;SY,metadata2=%d;SY:",
+		ret = sprintf(metadata_str,
+			"\"metadata\"#\"%d\"$\"metadata1\"#\"%d\"$\"metadata2\"#\"%d\"",
 			metadata, metadata1, metadata2);
 	}
-
-	ret = log_counter_to_vitals(ANDROID_LOG_INFO,
-		"Kernel vitals", "wifiKDM", "conn-num-autoreconnects",
-		key_str, 1, "count", metadata_str, VITALS_NORMAL);
-	if (ret)
+	if (ret < 0) {
 		DBGLOG(AIS, ERROR,
-			"log_counter_to_vitals fail: auto reconnect reason = %d %d\n",
-			metadata,ret);
-	minerva_ret = minerva_log_counter_to_vitals(ANDROID_LOG_INFO, "conn-num-autoreconnects", key_str, 1, metadata_str2);
+			"sprintf metadata_str failed, ret:%d\n", ret);
+		return;
+	}
+	minerva_ret = minerva_timer_to_vitals(ANDROID_LOG_INFO,
+					MINERVA_WIFI_GROUP_ID, MINERVA_WIFI_SCHEMA_ID,
+					"Kernel vitals", "wifiKDM", "conn-num-autoreconnects",
+					key_str, (u32)1, "count", VITALS_NORMAL, metadata_str, NULL);
 	if (minerva_ret)
 		DBGLOG(AIS, ERROR,
-			"minerva_log_counter_to_vitals fail: auto reconnect reason = %d %d\n",
+			"minerva_timer_to_vitals fail: auto reconnect reason = %d %d\n",
 			metadata, minerva_ret);
-}
 #endif
+}
 
 /*----------------------------------------------------------------------------*/
 /*!
@@ -3031,7 +3024,6 @@ VOID aisFsmRunEventJoinComplete(IN P_ADAPTER_T prAdapter, IN P_MSG_HDR_T prMsgHd
 	P_STA_RECORD_T prStaRec;
 	P_SW_RFB_T prAssocRspSwRfb;
 	P_BSS_INFO_T prAisBssInfo;
-	P_CONNECTION_SETTINGS_T prConnSettings;
 	UINT_8 aucP2pSsid[] = CTIA_MAGIC_SSID;
 	P_ROAMING_INFO_T prRoamingFsmInfo;
 	OS_SYSTIME rCurrentTime;
@@ -3047,7 +3039,6 @@ VOID aisFsmRunEventJoinComplete(IN P_ADAPTER_T prAdapter, IN P_MSG_HDR_T prMsgHd
 	prAssocRspSwRfb = prJoinCompMsg->prSwRfb;
 
 	eNextState = prAisFsmInfo->eCurrentState;
-	prConnSettings = &prAdapter->rWifiVar.rConnSettings;
 
 	DBGLOG(AIS, TRACE, "AISOK\n");
 
@@ -3225,22 +3216,13 @@ VOID aisFsmRunEventJoinComplete(IN P_ADAPTER_T prAdapter, IN P_MSG_HDR_T prMsgHd
 #endif
 						eNextState = AIS_STATE_WAIT_FOR_NEXT_SCAN;
 #endif /* CFG_SUPPORT_ROAMING */
-						if (prConnSettings->eConnectionPolicy == CONNECT_BY_BSSID) {
-							uint32_t u4InfoBufLen = 0;
-							if (timerPendingTimer(&prAisFsmInfo->rIndicationOfDisconnectTimer))
-								cnmTimerStopTimer(prAdapter, &prAisFsmInfo->rIndicationOfDisconnectTimer);
-							wlanoidSetDisassociate
-							    (prAdapter, NULL, 0,
-							     &u4InfoBufLen);
-							eNextState =
-							    prAisFsmInfo->eCurrentState;
-						}
 #if CFG_SUPPORT_RN
 					} else if (prAisBssInfo->fgDisConnReassoc == TRUE) {
 						kalIndicateStatusAndComplete(prAdapter->prGlueInfo,
 							WLAN_STATUS_MEDIA_DISCONNECT, NULL, 0);
 						prAisBssInfo->fgDisConnReassoc = FALSE;
 						aisNotifyAutoReconnectMetic(prAisBssInfo, prStaRec->u2ReasonCode, FALSE);
+						eNextState = AIS_STATE_IDLE;
 #endif
 					} else if (CHECK_FOR_TIMEOUT(rCurrentTime, prAisFsmInfo->rJoinReqTime,
 						 SEC_TO_SYSTIME(AIS_JOIN_TIMEOUT))) {
@@ -3638,18 +3620,6 @@ aisIndicationOfMediaStateToHost(IN P_ADAPTER_T prAdapter,
 		/* 4 <2> Indication */
 		nicMediaStateChange(prAdapter, NETWORK_TYPE_AIS_INDEX, &rEventConnStatus);
 		prAisBssInfo->eConnectionStateIndicated = eConnectionState;
-		if (eConnectionState == PARAM_MEDIA_STATE_DISCONNECTED) {
-			if (prAisBssInfo->eConnectionState ==
-			    PARAM_MEDIA_STATE_CONNECTED) {
-				aisChangeMediaState(prAdapter,
-				PARAM_MEDIA_STATE_DISCONNECTED);
-				/* 4 <4.1> sync. with firmware */
-				nicUpdateBss(prAdapter,
-					     prAisBssInfo->ucNetTypeIndex);
-			}
-			prAisFsmInfo->prTargetBssDesc = NULL;
-			prAisFsmInfo->prTargetStaRec = NULL;
-		}
 	} else {
 		/* NOTE: Only delay the Indication of Disconnect Event */
 		ASSERT(eConnectionState == PARAM_MEDIA_STATE_DISCONNECTED);
@@ -4443,13 +4413,9 @@ VOID aisFsmRunEventJoinTimeout(IN P_ADAPTER_T prAdapter, ULONG ulParam)
 		DBGLOG(AIS, LOUD, "EVENT- JOIN TIMEOUT\n");
 
 		/* 2. Increase Join Failure Count */
-		if (prAisFsmInfo->prTargetBssDesc)
-			prAisFsmInfo->prTargetBssDesc->ucJoinFailureCount++;
-		else
-			DBGLOG(AIS, WARN, "EVENT- JOIN TIMEOUT prTargetBssDesc is null\n");
+		prAisFsmInfo->prTargetBssDesc->ucJoinFailureCount++;
 /* For JB nl802.11 */
-		if (prAisFsmInfo->prTargetBssDesc &&
-			prAisFsmInfo->prTargetBssDesc->ucJoinFailureCount < JOIN_MAX_RETRY_FAILURE_COUNT) {
+		if (prAisFsmInfo->prTargetBssDesc->ucJoinFailureCount < JOIN_MAX_RETRY_FAILURE_COUNT) {
 			/* 3.1 Retreat to AIS_STATE_SEARCH state for next try */
 			eNextState = AIS_STATE_SEARCH;
 		} else if (prAisBssInfo->eConnectionState == PARAM_MEDIA_STATE_CONNECTED) {

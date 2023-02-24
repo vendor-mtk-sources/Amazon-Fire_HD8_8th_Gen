@@ -2887,7 +2887,6 @@ static WLAN_STATUS __scanProcessBeaconAndProbeResp(IN P_ADAPTER_T prAdapter, IN 
 {
 #endif
 	P_CONNECTION_SETTINGS_T prConnSettings;
-	P_SCAN_INFO_T prScanInfo;
 	P_BSS_DESC_T prBssDesc = (P_BSS_DESC_T) NULL;
 	WLAN_STATUS rStatus = WLAN_STATUS_SUCCESS;
 	P_BSS_INFO_T prAisBssInfo;
@@ -2930,7 +2929,6 @@ static WLAN_STATUS __scanProcessBeaconAndProbeResp(IN P_ADAPTER_T prAdapter, IN 
 #endif
 
 	prConnSettings = &(prAdapter->rWifiVar.rConnSettings);
-	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
 	prAisBssInfo = &(prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX]);
 	prWlanBeaconFrame = (P_WLAN_BEACON_FRAME_T) prSwRfb->pvHeader;
 
@@ -3011,8 +3009,7 @@ static WLAN_STATUS __scanProcessBeaconAndProbeResp(IN P_ADAPTER_T prAdapter, IN 
 		/* 4 <3> Send SW_RFB_T to HIF when we perform SCAN for HOST */
 		if (prBssDesc->eBSSType == BSS_TYPE_INFRASTRUCTURE || prBssDesc->eBSSType == BSS_TYPE_IBSS) {
 			/* for AIS, send to host */
-			if (prScanInfo->eCurrentState == SCAN_STATE_SCANNING
-				|| prAdapter->rWifiVar.rScanInfo.fgNloScanning) {
+			if (prConnSettings->fgIsScanReqIssued || prAdapter->rWifiVar.rScanInfo.fgNloScanning) {
 				BOOLEAN fgAddToScanResult;
 
 				fgAddToScanResult = scanCheckBssIsLegal(prAdapter, prBssDesc);

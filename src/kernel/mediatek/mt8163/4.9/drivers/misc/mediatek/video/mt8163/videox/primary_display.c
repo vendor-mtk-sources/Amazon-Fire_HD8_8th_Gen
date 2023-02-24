@@ -84,6 +84,11 @@
 #include <tz_cross/tz_ddp.h>
 #endif
 
+#if defined(CONFIG_AMAZON_MINERVA_METRICS_LOG)
+#include <linux/metricslog.h>
+#define METRICS_STR_LEN 512
+#endif
+
 typedef int (*fence_release_callback) (unsigned int data);
 
 unsigned int is_hwc_enabled;
@@ -3818,6 +3823,16 @@ int primary_display_esd_recovery(void)
 {
 	enum DISP_STATUS ret = DISP_STATUS_OK;
 	struct LCM_PARAMS *lcm_param = NULL;
+
+#ifdef CONFIG_AMAZON_MINERVA_METRICS_LOG
+	char buf[METRICS_STR_LEN] = {0};
+
+	minerva_metrics_log(buf, METRICS_STR_LEN,
+			"%s:%s:100:%s,%s,%s,%s,lcm_state=recovery;SY,ESD_Recovery=1;IN:us-east-1",
+			METRICS_LCD_GROUP_ID, METRICS_LCD_SCHEMA_ID,
+			PREDEFINED_ESSENTIAL_KEY, PREDEFINED_MODEL_KEY,
+			PREDEFINED_TZ_KEY, PREDEFINED_DEVICE_LANGUAGE_KEY);
+#endif
 
 	DISPFUNC();
 	dprec_logger_start(DPREC_LOGGER_ESD_RECOVERY, 0, 0);

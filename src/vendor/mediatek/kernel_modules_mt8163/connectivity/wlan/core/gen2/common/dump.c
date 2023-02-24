@@ -347,25 +347,3 @@ VOID dumpMemory32(IN PUINT_32 pu4StartAddr, IN UINT_32 u4Length)
 	}
 
 }				/* end of dumpMemory32() */
-#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMZN_METRICS_LOG)
-int minerva_log_counter_to_vitals(android_LogPriority priority,
-		const char *source, const char *key,
-		long counter_value, const char *metadata)
-{
-	char str[512];
-	const char *domain = "AmazonMinervaLoggerClient";
-	const char *minerva_wifi_predefined = "30pfp83p:xvb0/2/05330400:100:"
-		"_softwareVersion=;SY,_buildType=;SY,_platform=;SY,_timeZone=;"
-		"SY,_countryOfResidence=;SY,_otaGroupName=;SY,_deviceId=;SY";
-
-	if (metadata == NULL)
-		snprintf(str, 512,
-			"%s,operation=%s;SY,sum=%d;FL,key=%s;SY:",
-			minerva_wifi_predefined, source, counter_value, key);
-	else
-		snprintf(str, 512,
-			"%s,operation=%s;SY,sum=%d;FL,key=%s;SY,%s",
-			minerva_wifi_predefined, source, counter_value, key, metadata);
-	return log_to_metrics(priority, domain, str);
-}
-#endif

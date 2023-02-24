@@ -5859,11 +5859,11 @@ BOOLEAN qmIsNeedExcludeOui(IN PUINT_8 pucBuf)
 	return iRet;
 }
 
-#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMZN_METRICS_LOG)
 void qmNotifyBAOffloadtMetic(IN P_ADAPTER_T prAdapter,
 	IN UINT_32 u4BACnt, IN enum ENUM_BAOFFLOAD_INDICATE_TYPE type)
 
 {
+#ifdef CONFIG_AMAZON_MINERVA_METRICS_LOG
 	P_BSS_DESC_T prBssDesc;
 	P_UINT_8 key_str[] = {"BAR", "ADDBA", "DELBA"};
 	UINT_8 metadata_str[128];
@@ -5872,12 +5872,11 @@ void qmNotifyBAOffloadtMetic(IN P_ADAPTER_T prAdapter,
 	UINT_16 u2IeLen;
 	UINT_16 u2IeOffSet = 0;
 	P_IE_VENDOR_HDR_T prVendorIE;
-	int minerva_ret = -1;
-	uint8_t metadata_str2[128];
-
 	int ret = -1;
+	int minerva_ret = -1;
 
 	DEBUGFUNC("qmNotifyBAOffloadtMetic()");
+	DBGLOG(QM, TRACE, "type %d, u4BACnt:%d!!\n", type, u4BACnt);
 	if (prAdapter == NULL) {
 		DBGLOG(QM, ERROR,
 			"qmNotifyBAOffloadtMetic() exception\n");
@@ -5892,7 +5891,6 @@ void qmNotifyBAOffloadtMetic(IN P_ADAPTER_T prAdapter,
 	pucIE = &prBssDesc->aucIEBuf[0];
 	u2IeLen = prBssDesc->u2IELength;
 	kalMemSet(metadata_str, 0x00, sizeof(metadata_str));
-	kalMemSet(metadata_str2, 0x00, sizeof(metadata_str2));
 
 	IE_FOR_EACH(pucIE, u2IeLen, u2IeOffSet) {
 		if ((IE_ID(pucIE) == ELEM_ID_VENDOR) && (IE_LEN(pucIE) >3)) {
@@ -5903,28 +5901,26 @@ void qmNotifyBAOffloadtMetic(IN P_ADAPTER_T prAdapter,
 		}
 	}
 
-	sprintf(metadata_str,
-		"!{\"d\"#{\"metadata\"#\"%02x-%02x-%02x\"$\"metadata1\"#\"%02x-%02x-%02x\"}}",
+	ret =  sprintf(metadata_str,
+		"\"metadata\"#\"%02x-%02x-%02x\"$\"metadata1\"#\"%02x-%02x-%02x\"",
 		prBssDesc->aucBSSID[0], prBssDesc->aucBSSID[1], prBssDesc->aucBSSID[2],
 		aucOui[0], aucOui[1],aucOui[2]);
-	sprintf(metadata_str2,
-		"metadata=%02x-%02x-%02x;SY,metadata1=%02x-%02x-%02x;SY:",
-		prBssDesc->aucBSSID[0], prBssDesc->aucBSSID[1], prBssDesc->aucBSSID[2],
-		aucOui[0], aucOui[1],aucOui[2]);
-	ret = log_counter_to_vitals(ANDROID_LOG_INFO,
-		"Kernel vitals", "wifiKDM", "wifi-num-ba-offloading",
-		key_str[type], u4BACnt, "count", metadata_str, VITALS_NORMAL);
-	if (ret)
-		DBGLOG(QM, ERROR,
-			"log_counter_to_vitals fail: type:%s; buffer Cnt:%d\n",
-			key_str[type],u4BACnt);
-	minerva_ret = minerva_log_counter_to_vitals(ANDROID_LOG_INFO, "wifi-num-ba-offloading", key_str[type], u4BACnt, metadata_str2);
+	if (ret < 0) {
+		DBGLOG(AIS, ERROR,
+			"sprintf metadata_str failed, ret:%d\n", ret);
+		return;
+	}
+
+	minerva_ret = minerva_timer_to_vitals(ANDROID_LOG_INFO,
+				MINERVA_WIFI_GROUP_ID, MINERVA_WIFI_SCHEMA_ID,
+				"Kernel vitals", "wifiKDM", "wifi-num-ba-offloading",
+				key_str[type], u4BACnt, "count", VITALS_NORMAL, metadata_str, NULL);
 	if (minerva_ret)
 		DBGLOG(QM, ERROR,
-			"log_counter_to_vitals_new fail: type:%s; buffer Cnt:%d\n",
+			"minerva_timer_to_vitals fail: type:%s; buffer Cnt:%d\n",
 			key_str[type],u4BACnt);
-}
 #endif
+}
 #endif
 void qmHandleBaOffloadBarFrame(IN P_ADAPTER_T prAdapter,
 	IN UINT_8 ucStaRecIdx, IN UINT_8 ucTid, IN UINT_32 u4SSN)
@@ -6023,8 +6019,9 @@ void qmHandleEventBaOffloadIndication(IN P_ADAPTER_T prAdapter,
 		(struct EVENT_BAOFFLOAD_INDICATE *)(prEvent->aucBuffer);
 
 	DBGLOG(QM, TRACE,
-		"[BAOFD]Receive BAR/ADDBA/DELBA Event count %d!!\n",
-		prEventBaOffloadIndicate->ucEventCnt);
+		"[BAOFD]Receive BAR/ADDBA/DELBA Event count %d, CacheBACntExist:%d!!\n",
+		prEventBaOffloadIndicate->ucEventCnt,
+		prEventBaOffloadIndicate->fgCacheBACntExist);
 #if CFG_SUPPORT_BA_OFFLOAD_METRIC
 	if (prEventBaOffloadIndicate->fgCacheBACntExist) {
 		for (i = 0; i < BAOFFLOAD_INDICATE_NUM; i++) {
