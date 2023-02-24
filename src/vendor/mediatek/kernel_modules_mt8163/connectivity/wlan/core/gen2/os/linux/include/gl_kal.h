@@ -1765,4 +1765,26 @@ BOOLEAN kalTRxStatsPaused(VOID);
 #if CFG_SUPPORT_ROAMING
 VOID kalIndicateRoamingMetrics(IN P_GLUE_INFO_T prGlueInfo);
 #endif
+#if CFG_SUPPORT_IPI_HISTOGRAM
+int ipi_thread(void *data);
+UINT_32
+kalSetMCR(
+	P_GLUE_INFO_T prGlueInfo,
+	PARAM_CUSTOM_MCR_RW_STRUCT_T 	rMcrInfo
+);
+UINT_32
+kalGetMCR(
+	P_GLUE_INFO_T                prGlueInfo,
+	PARAM_CUSTOM_MCR_RW_STRUCT_T 	rMcrInfo
+);
+VOID
+	kalEnableIPI(P_GLUE_INFO_T prGlueInfo);
+VOID
+	kalDisableIPI(P_GLUE_INFO_T prGlueInfo);
+
+VOID
+kalUpdateNoise(
+	P_GLUE_INFO_T prGlueInfo,
+	INT_8 cNoise);
+#endif
 #endif /* _GL_KAL_H */

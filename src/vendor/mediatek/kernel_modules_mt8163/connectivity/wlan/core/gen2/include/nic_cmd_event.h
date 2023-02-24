@@ -1442,13 +1442,20 @@ typedef struct _CMD_PATTERN_FUNC_CONFIG {
 	BOOLEAN fgMcA1MatchDrop;
 } CMD_PATTERN_FUNC_CONFIG, *P_CMD_PATTERN_FUNC_CONFIG;
 
+/*
+*Align structure definition with FW, which wraps au4Reserved1 and au4Reserved2
+*into compiling option CFG_SUPPORT_802_11V_TIMING_MEASUREMENT,and firmware
+*never allocates memory for au4Reserved3.
+*/
 typedef struct _EVENT_TX_DONE_T {
 	UINT_8 ucPacketSeq;
 	UINT_8 ucStatus;
 	UINT_16 u2SequenceNumber;
+#if CFG_SUPPORT_802_11V_TIMING_MEASUREMENT
 	UINT_32 au4Reserved1;
 	UINT_32 au4Reserved2;
-	UINT_32 au4Reserved3;
+#endif
+	UINT_32 au4Reserved3[0];
 } EVENT_TX_DONE_T, *P_EVENT_TX_DONE_T;
 
 typedef struct _CMD_BSS_ACTIVATE_CTRL {

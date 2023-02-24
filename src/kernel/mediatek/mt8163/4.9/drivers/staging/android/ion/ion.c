@@ -628,6 +628,11 @@ static void *ion_buffer_kmap_get(struct ion_buffer *buffer)
 {
 	void *vaddr;
 
+	if (INT_MAX == buffer->kmap_cnt) {
+		IONMSG("%s overflow\n", __func__);
+		return ERR_PTR(-EOVERFLOW);
+	}
+
 	if (buffer->kmap_cnt) {
 		buffer->kmap_cnt++;
 		return buffer->vaddr;
@@ -650,6 +655,11 @@ static void *ion_handle_kmap_get(struct ion_handle *handle)
 {
 	struct ion_buffer *buffer = handle->buffer;
 	void *vaddr;
+
+	if (UINT_MAX == handle->kmap_cnt) {
+		IONMSG("%s overflow\n", __func__);
+		return ERR_PTR(-EOVERFLOW);
+	}
 
 	if (handle->kmap_cnt) {
 		handle->kmap_cnt++;
@@ -695,6 +705,7 @@ static void ion_handle_kmap_put(struct ion_handle *handle)
 
 void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle)
 {
+	struct ion_handle *handle_ret;
 	struct ion_buffer *buffer;
 	void *vaddr;
 
@@ -715,6 +726,13 @@ void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle)
 		return ERR_PTR(-ENODEV);
 	}
 
+	handle_ret = ion_handle_get_check_overflow(handle);
+	if (IS_ERR(handle_ret)) {
+		mutex_unlock(&client->lock);
+		WARN(1, "%s: handle get fail %ld.\n", __func__,
+		     PTR_ERR(handle_ret));
+		return handle_ret;
+	}
 	mutex_lock(&buffer->lock);
 	vaddr = ion_handle_kmap_get(handle);
 	mutex_unlock(&buffer->lock);
@@ -732,6 +750,8 @@ void ion_unmap_kernel(struct ion_client *client, struct ion_handle *handle)
 	mutex_lock(&buffer->lock);
 	ion_handle_kmap_put(handle);
 	mutex_unlock(&buffer->lock);
+
+	ion_handle_put_nolock(handle);
 	mutex_unlock(&client->lock);
 }
 EXPORT_SYMBOL(ion_unmap_kernel);
@@ -1064,9 +1084,9 @@ static int ion_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	unsigned long pfn;
 	int ret;
 
+	BUG_ON(!buffer->pages || !buffer->pages[vmf->pgoff]);
 	mutex_lock(&buffer->lock);
 	ion_buffer_page_dirty(buffer->pages + vmf->pgoff);
-	BUG_ON(!buffer->pages || !buffer->pages[vmf->pgoff]);
 
 	pfn = page_to_pfn(ion_buffer_page(buffer->pages[vmf->pgoff]));
 	ret = vm_insert_pfn(vma, (unsigned long)vmf->virtual_address, pfn);

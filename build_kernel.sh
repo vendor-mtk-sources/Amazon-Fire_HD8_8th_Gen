@@ -3,7 +3,7 @@
 #
 #  build_kernel.sh
 #
-#  Copyright (c) 2016-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  Copyright (c) 2016-2022 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 ################################################################################
 
@@ -159,6 +159,18 @@ function copy_to_output {
     popd
 }
 
+function validate_output {
+    echo "Listing output files"
+    local IFS=":"
+    for IMAGE in ${KERNEL_IMAGES};do
+        if [ ! -f ${TARGET_DIR}/${IMAGE} ]; then
+            echo "ERROR: Missing kernel output image ${IMAGE}" >&2
+            exit 1
+        fi
+        ls -l ${TARGET_DIR}/${IMAGE}
+    done
+}
+
 ################################################################################
 #
 #  M A I N
@@ -184,3 +196,6 @@ exec_build_kernel
 
 # Phase 4: move to output
 copy_to_output
+
+# Phase 5: verify output
+validate_output

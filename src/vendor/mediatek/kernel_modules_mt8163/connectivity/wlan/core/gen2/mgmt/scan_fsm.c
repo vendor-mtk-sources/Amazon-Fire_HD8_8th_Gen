@@ -1886,6 +1886,8 @@ scnCombineParamsIntoPSCN(IN P_ADAPTER_T prAdapter,
 
 	memcpy(prScanInfo->prPscnParam, prCmdPscnParam, sizeof(CMD_SET_PSCAN_PARAM));
 
+	kalMemFree(prCmdPscnParam, VIR_MEM_TYPE, sizeof(CMD_SET_PSCAN_PARAM));
+
 	return TRUE;
 }
 

@@ -2666,6 +2666,7 @@ _priv_get_string(IN struct net_device *prNetDev,
 		INT_32 i4Rssi;
 		UINT_32 u4Rate = 0;
 		P_BSS_INFO_T prBssInfo;
+		struct iw_statistics *pStats = (struct iw_statistics *)NULL;
 
 		kalMemZero(aucBuffer, 512);
 		pSwDbgCtrl = (P_CMD_SW_DBG_CTRL_T)aucBuffer;
@@ -2702,11 +2703,14 @@ _priv_get_string(IN struct net_device *prNetDev,
 
 		if (kalIoctl(prGlueInfo, wlanoidQueryRssi, &i4Rssi, sizeof(i4Rssi),
 				TRUE, TRUE, TRUE, FALSE, &u4BufLen) == WLAN_STATUS_SUCCESS) {
+
+			pStats = (struct iw_statistics *)(&(prGlueInfo->rIwStats));
+
 			pos += scnprintf(buf + pos, u4TotalLen - pos, "RSSI = %d\n", i4Rssi);
 			pos += scnprintf(buf + pos, u4TotalLen - pos, "P2P GO RSSI =\n");
 			pos += scnprintf(buf + pos, u4TotalLen - pos, "SNR-A = \n");
 			pos += scnprintf(buf + pos, u4TotalLen - pos, "SNR-B (if available) =\n");
-			pos += scnprintf(buf + pos, u4TotalLen - pos, "NoiseLevel-A =\n");
+			pos += scnprintf(buf + pos, u4TotalLen - pos, "NoiseLevel-A = %d\n",-(pStats->qual.noise));
 			pos += scnprintf(buf + pos, u4TotalLen - pos, "NoiseLevel-B =\n");
 		}
 

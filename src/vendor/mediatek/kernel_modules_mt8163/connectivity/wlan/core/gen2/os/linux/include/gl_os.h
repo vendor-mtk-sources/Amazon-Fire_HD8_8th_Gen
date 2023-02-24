@@ -658,6 +658,7 @@ extern BOOLEAN fgIsBusAccessFailed;
 #if CFG_SUPPORT_WAKEUP_REASON_DEBUG
 #define GLUE_FLAG_FINISH_CHARGING	 BIT(11)
 #endif
+#define GLUE_FLAG_IPI_EXIT          BIT(12)
 #define GLUE_FLAG_HALT_BIT          (0)
 #define GLUE_FLAG_INT_BIT           (1)
 #define GLUE_FLAG_OID_BIT           (2)
@@ -669,6 +670,7 @@ extern BOOLEAN fgIsBusAccessFailed;
 #define GLUE_FLAG_FRAME_FILTER_BIT  (8)
 #define GLUE_FLAG_FRAME_FILTER_AIS_BIT  (9)
 #define GLUE_FLAG_HIF_LOOPBK_AUTO_BIT   (10)
+#define GLUE_FLAG_IPI_EXIT_BIT          (12)
 
 #define GLUE_BOW_KFIFO_DEPTH        (1024)
 /* #define GLUE_BOW_DEVICE_NAME        "MT6620 802.11 AMP" */
@@ -1023,7 +1025,9 @@ struct _GLUE_INFO_T {
 	struct FT_IES rFtIeForTx;
 	struct cfg80211_ft_event_params rFtEventParam;
 #endif
-
+#if CFG_SUPPORT_IPI_HISTOGRAM
+	struct task_struct		*ipi_thread;
+#endif
 };
 
 struct NETDEV_PRIVATE_GLUE_INFO {

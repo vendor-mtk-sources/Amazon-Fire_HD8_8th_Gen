@@ -1774,17 +1774,17 @@ VOID rlmProcessChannelSwitchIE(P_ADAPTER_T prAdapter, P_IE_CHANNEL_SWITCH_T prCh
 		return;
 	}
 
-	DBGLOG(RLM, TRACE, "[5G DFS] ucChannelSwitchMode[%d], ucChannelSwitchCount[%d], ucNewChannelNum[%d] \r\n",
+	DBGLOG(RLM, INFO, "[5G DFS] ucChannelSwitchMode[%d], ucChannelSwitchCount[%d], ucNewChannelNum[%d] \r\n",
 		prChannelSwitchIE->ucChannelSwitchMode,
 		prChannelSwitchIE->ucChannelSwitchCount, prChannelSwitchIE->ucNewChannelNum);
 
-	if (prChannelSwitchIE->ucChannelSwitchMode == 1) {
-
+	if (prChannelSwitchIE->ucChannelSwitchMode == 1
+		&& prChannelSwitchIE->ucChannelSwitchCount > 0) {
 		prStaRec->fgIsValid = FALSE;
 		prStaRec->fgIsTxAllowed = FALSE;
 	}
 
-	if (prChannelSwitchIE->ucChannelSwitchCount) {
+	if (prChannelSwitchIE->ucChannelSwitchCount > 0) {
 		cnmTimerStopTimer(prAdapter, &prAisBssInfo->rCsaTimer);
 		cnmTimerStartTimer(prAdapter, &prAisBssInfo->rCsaTimer,
 				prAisBssInfo->u2BeaconInterval * prChannelSwitchIE->ucChannelSwitchCount);

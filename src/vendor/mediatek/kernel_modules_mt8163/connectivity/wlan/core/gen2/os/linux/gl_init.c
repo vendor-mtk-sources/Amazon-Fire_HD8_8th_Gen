@@ -4301,6 +4301,9 @@ static INT_32 wlanProbe(PVOID pvData)
 		prAdapter = prGlueInfo->prAdapter;
 
 		prGlueInfo->u4ReadyFlag = 0;
+#if CFG_SUPPORT_IPI_HISTOGRAM
+		prGlueInfo->ipi_thread = NULL;
+#endif
 
 		/* default set the FW roaming enable state to 'on' */
 		prGlueInfo->u4FWRoamingEnable = 1;

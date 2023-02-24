@@ -1690,6 +1690,8 @@
 #define CFG_SUPPORT_BA_OFFLOAD 1 /* fos_change oneline */
 #define CFG_SUPPORT_BA_OFFLOAD_METRIC 1 /* fos_change oneline */
 
+#define CFG_SUPPORT_IPI_HISTOGRAM 1
+
 /*******************************************************************************
 *                             D A T A   T Y P E S
 ********************************************************************************

@@ -2126,8 +2126,11 @@ VOID aisFsmSteps(IN P_ADAPTER_T prAdapter, ENUM_AIS_STATE_T eNextState)
 						prAisFsmInfo->ucConnTrialCount++;
 #if CFG_SUPPORT_RN
 					if (prAisBssInfo->fgDisConnReassoc == TRUE) {
-						kalIndicateStatusAndComplete(prAdapter->prGlueInfo,
-							WLAN_STATUS_MEDIA_DISCONNECT, NULL, 0);
+						if (kalGetMediaStateIndicated(prAdapter->prGlueInfo) !=
+							PARAM_MEDIA_STATE_DISCONNECTED) {
+							kalIndicateStatusAndComplete(prAdapter->prGlueInfo,
+								WLAN_STATUS_MEDIA_DISCONNECT, NULL, 0);
+						}
 						aisNotifyAutoReconnectMetic(prAisBssInfo, REASON_CODE_NOT_SEARCH_BSS, FALSE);
 						prAisBssInfo->fgDisConnReassoc = FALSE;
 						eNextState = AIS_STATE_IDLE;
@@ -3028,6 +3031,7 @@ VOID aisFsmRunEventJoinComplete(IN P_ADAPTER_T prAdapter, IN P_MSG_HDR_T prMsgHd
 	P_STA_RECORD_T prStaRec;
 	P_SW_RFB_T prAssocRspSwRfb;
 	P_BSS_INFO_T prAisBssInfo;
+	P_CONNECTION_SETTINGS_T prConnSettings;
 	UINT_8 aucP2pSsid[] = CTIA_MAGIC_SSID;
 	P_ROAMING_INFO_T prRoamingFsmInfo;
 	OS_SYSTIME rCurrentTime;
@@ -3043,6 +3047,7 @@ VOID aisFsmRunEventJoinComplete(IN P_ADAPTER_T prAdapter, IN P_MSG_HDR_T prMsgHd
 	prAssocRspSwRfb = prJoinCompMsg->prSwRfb;
 
 	eNextState = prAisFsmInfo->eCurrentState;
+	prConnSettings = &prAdapter->rWifiVar.rConnSettings;
 
 	DBGLOG(AIS, TRACE, "AISOK\n");
 
@@ -3220,6 +3225,16 @@ VOID aisFsmRunEventJoinComplete(IN P_ADAPTER_T prAdapter, IN P_MSG_HDR_T prMsgHd
 #endif
 						eNextState = AIS_STATE_WAIT_FOR_NEXT_SCAN;
 #endif /* CFG_SUPPORT_ROAMING */
+						if (prConnSettings->eConnectionPolicy == CONNECT_BY_BSSID) {
+							uint32_t u4InfoBufLen = 0;
+							if (timerPendingTimer(&prAisFsmInfo->rIndicationOfDisconnectTimer))
+								cnmTimerStopTimer(prAdapter, &prAisFsmInfo->rIndicationOfDisconnectTimer);
+							wlanoidSetDisassociate
+							    (prAdapter, NULL, 0,
+							     &u4InfoBufLen);
+							eNextState =
+							    prAisFsmInfo->eCurrentState;
+						}
 #if CFG_SUPPORT_RN
 					} else if (prAisBssInfo->fgDisConnReassoc == TRUE) {
 						kalIndicateStatusAndComplete(prAdapter->prGlueInfo,
@@ -3623,6 +3638,18 @@ aisIndicationOfMediaStateToHost(IN P_ADAPTER_T prAdapter,
 		/* 4 <2> Indication */
 		nicMediaStateChange(prAdapter, NETWORK_TYPE_AIS_INDEX, &rEventConnStatus);
 		prAisBssInfo->eConnectionStateIndicated = eConnectionState;
+		if (eConnectionState == PARAM_MEDIA_STATE_DISCONNECTED) {
+			if (prAisBssInfo->eConnectionState ==
+			    PARAM_MEDIA_STATE_CONNECTED) {
+				aisChangeMediaState(prAdapter,
+				PARAM_MEDIA_STATE_DISCONNECTED);
+				/* 4 <4.1> sync. with firmware */
+				nicUpdateBss(prAdapter,
+					     prAisBssInfo->ucNetTypeIndex);
+			}
+			prAisFsmInfo->prTargetBssDesc = NULL;
+			prAisFsmInfo->prTargetStaRec = NULL;
+		}
 	} else {
 		/* NOTE: Only delay the Indication of Disconnect Event */
 		ASSERT(eConnectionState == PARAM_MEDIA_STATE_DISCONNECTED);
@@ -4416,9 +4443,13 @@ VOID aisFsmRunEventJoinTimeout(IN P_ADAPTER_T prAdapter, ULONG ulParam)
 		DBGLOG(AIS, LOUD, "EVENT- JOIN TIMEOUT\n");
 
 		/* 2. Increase Join Failure Count */
-		prAisFsmInfo->prTargetBssDesc->ucJoinFailureCount++;
+		if (prAisFsmInfo->prTargetBssDesc)
+			prAisFsmInfo->prTargetBssDesc->ucJoinFailureCount++;
+		else
+			DBGLOG(AIS, WARN, "EVENT- JOIN TIMEOUT prTargetBssDesc is null\n");
 /* For JB nl802.11 */
-		if (prAisFsmInfo->prTargetBssDesc->ucJoinFailureCount < JOIN_MAX_RETRY_FAILURE_COUNT) {
+		if (prAisFsmInfo->prTargetBssDesc &&
+			prAisFsmInfo->prTargetBssDesc->ucJoinFailureCount < JOIN_MAX_RETRY_FAILURE_COUNT) {
 			/* 3.1 Retreat to AIS_STATE_SEARCH state for next try */
 			eNextState = AIS_STATE_SEARCH;
 		} else if (prAisBssInfo->eConnectionState == PARAM_MEDIA_STATE_CONNECTED) {

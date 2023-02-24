@@ -1626,6 +1626,14 @@ int32_t cmdq_task_destroy(cmdqRecHandle handle)
 	if (handle->pRunningTask != NULL)
 		return cmdq_task_stop_loop(handle);
 
+	/* secure path buffer */
+	if (handle->secData.addrMetadatas) {
+		kfree(CMDQ_U32_PTR(handle->secData.addrMetadatas));
+		handle->secData.addrMetadatas = 0;
+		handle->secData.addrMetadataMaxCount = 0;
+		handle->secData.addrMetadataCount = 0;
+	}
+
 	/* Free command buffer */
 	vfree(handle->pBuffer);
 	handle->pBuffer = NULL;

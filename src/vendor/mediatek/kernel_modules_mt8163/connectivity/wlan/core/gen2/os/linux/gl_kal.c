@@ -1779,6 +1779,12 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 							prGlueInfo->u4RspIeLength, WLAN_STATUS_SUCCESS, GFP_KERNEL);
 			}
 		}
+#if CFG_SUPPORT_IPI_HISTOGRAM
+		if (prGlueInfo->ipi_thread == NULL) {
+			prGlueInfo->ipi_thread = kthread_run(ipi_thread,
+				prGlueInfo->prDevHandler, "ipi_thread");
+		}
+#endif
 
 		break;
 
@@ -1822,11 +1828,19 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 #endif
 		}
 #if CFG_SUPPORT_802_11R
-		kalMemFree(prGlueInfo->rFtIeForTx.pucIEBuf, VIR_MEM_TYPE, prGlueInfo->rFtIeForTx.u4IeLength);
-		kalMemZero(&prGlueInfo->rFtIeForTx, sizeof(prGlueInfo->rFtIeForTx));
+		if (!prGlueInfo->rFtIeForTx.pucIEBuf) {
+			kalMemFree(prGlueInfo->rFtIeForTx.pucIEBuf, VIR_MEM_TYPE, prGlueInfo->rFtIeForTx.u4IeLength);
+			kalMemZero(&prGlueInfo->rFtIeForTx, sizeof(prGlueInfo->rFtIeForTx));
+		}
 #endif
 
 		prGlueInfo->eParamMediaStateIndicated = PARAM_MEDIA_STATE_DISCONNECTED;
+#if CFG_SUPPORT_IPI_HISTOGRAM
+		if (prGlueInfo->ipi_thread != NULL) {
+			set_bit(GLUE_FLAG_IPI_EXIT_BIT, &prGlueInfo->ulFlag);
+			DBGLOG(INIT, INFO, "ipi_thread need stop\n");
+		}
+#endif
 
 		break;
 
@@ -3545,13 +3559,51 @@ kalUpdateRSSI(IN P_GLUE_INFO_T prGlueInfo,
 
 	if (pStats) {
 		pStats->qual.qual = cLinkQuality;
+#if CFG_SUPPORT_IPI_HISTOGRAM
+		/* pStats->qual.noise = 0; */
+		/* pStats->qual.updated = IW_QUAL_QUAL_UPDATED | IW_QUAL_NOISE_UPDATED; */
+		pStats->qual.updated = IW_QUAL_QUAL_UPDATED;
+#else
 		pStats->qual.noise = 0;
 		pStats->qual.updated = IW_QUAL_QUAL_UPDATED | IW_QUAL_NOISE_UPDATED;
+#endif
 		pStats->qual.level = 0x100 + cRssi;
 		pStats->qual.updated |= IW_QUAL_LEVEL_UPDATED;
 	}
 
 }
+
+#if CFG_SUPPORT_IPI_HISTOGRAM
+/*----------------------------------------------------------------------------*/
+/*!
+* \brief update Noise to GLUE layer
+*
+* \param[in]
+*           prGlueInfo
+*           cRssi
+*
+* \return
+*           None
+*/
+/*----------------------------------------------------------------------------*/
+VOID
+kalUpdateNoise(IN P_GLUE_INFO_T prGlueInfo, IN INT_8 cNoise)
+{
+	struct iw_statistics *pStats = (struct iw_statistics *)NULL;
+
+	ASSERT(prGlueInfo);
+
+	pStats = (struct iw_statistics *)(&(prGlueInfo->rIwStats));
+
+
+	if (pStats) {
+		DBGLOG(INIT, TRACE, "pStats->qual.noise:%d, cNoise:%d\n", pStats->qual.noise, cNoise);
+		pStats->qual.noise = -cNoise;
+		pStats->qual.updated |= IW_QUAL_NOISE_UPDATED;
+	}
+}
+#endif
+
 
 /*----------------------------------------------------------------------------*/
 /*!
@@ -4363,6 +4415,127 @@ UINT_64 kalGetBootTime(void)
 	bootTime += ts.tv_nsec / NSEC_PER_USEC;
 	return bootTime;
 }
+
+#if CFG_SUPPORT_IPI_HISTOGRAM
+static INT_32 IPI_HISTOGRAM_TABLE[11] = {-94, -90, -87, -84, -81, -77, -72, -67, -62, -57, -52};
+
+UINT_32
+	kalSetMCR(
+		P_GLUE_INFO_T                prGlueInfo,
+		PARAM_CUSTOM_MCR_RW_STRUCT_T  rMcrInfo)
+{
+	UINT_32 u4BufLen;
+	WLAN_STATUS rStatus = WLAN_STATUS_SUCCESS;
+	rStatus = kalIoctl(prGlueInfo,
+				wlanoidSetMcrWrite,
+				(PVOID)&rMcrInfo,
+				sizeof(rMcrInfo),
+				FALSE,
+				FALSE,
+				TRUE,
+				FALSE,
+				&u4BufLen);
+	DBGLOG(INIT, INFO, "SET MCR (0x%08lxh): 0x%08lx\n",
+		rMcrInfo.u4McrOffset, rMcrInfo.u4McrData);
+	return 0;
+}
+
+UINT_32
+	kalGetMCR(
+		P_GLUE_INFO_T                prGlueInfo,
+		PARAM_CUSTOM_MCR_RW_STRUCT_T rMcrInfo)
+{
+	UINT_32 u4BufLen;
+	WLAN_STATUS rStatus = WLAN_STATUS_SUCCESS;
+	rStatus = kalIoctl(prGlueInfo,
+		wlanoidQueryMcrRead,
+		(PVOID)&rMcrInfo,
+		sizeof(rMcrInfo),
+		TRUE,
+		TRUE,
+		TRUE,
+		FALSE,
+		&u4BufLen);
+	DBGLOG(INIT, INFO, "GET MCR (0x%08lxh): 0x%08lx\n",
+		rMcrInfo.u4McrOffset, rMcrInfo.u4McrData);
+	return rMcrInfo.u4McrData;
+}
+
+VOID
+	kalEnableIPI(P_GLUE_INFO_T prGlueInfo)
+{
+	PARAM_CUSTOM_MCR_RW_STRUCT_T rMcrInfo;
+	rMcrInfo.u4McrOffset = 0x6020080c;
+	rMcrInfo.u4McrData = kalGetMCR(prGlueInfo, rMcrInfo);
+	rMcrInfo.u4McrData |= 0x30000;
+	kalSetMCR(prGlueInfo, rMcrInfo);
+	DBGLOG(INIT, INFO, "Enable IPI (0x%08lxh): 0x%08lx\n",
+		rMcrInfo.u4McrOffset, rMcrInfo.u4McrData);
+}
+
+VOID
+	kalDisableIPI(P_GLUE_INFO_T prGlueInfo)
+{
+	PARAM_CUSTOM_MCR_RW_STRUCT_T rMcrInfo;
+	rMcrInfo.u4McrOffset = 0x6020080c;
+	rMcrInfo.u4McrData = kalGetMCR(prGlueInfo, rMcrInfo);
+	rMcrInfo.u4McrData &= 0xffcffff;
+	kalSetMCR(prGlueInfo, rMcrInfo);
+	DBGLOG(INIT, INFO, "Disable IPI (0x%08lxh): 0x%08lx\n",
+		rMcrInfo.u4McrOffset, rMcrInfo.u4McrData);
+}
+
+int ipi_thread(void *data)
+{
+	struct net_device *dev = data;
+	P_GLUE_INFO_T prGlueInfo = *((P_GLUE_INFO_T *) netdev_priv(dev));
+	PARAM_CUSTOM_MCR_RW_STRUCT_T rMcrInfo;
+	UINT_32 i;
+	UINT_32 oldValueIpiCR = 0;
+	UINT_32 IPIValue[11], max, maxindex;
+	INT_8 noise = -95;
+
+	DBGLOG(INIT, INFO, "ipi_thread starts running... \n");
+	kalEnableIPI(prGlueInfo);
+
+	rMcrInfo.u4McrOffset = 0x60204870;
+	oldValueIpiCR = kalGetMCR(prGlueInfo, rMcrInfo);
+	msleep(1000);
+	while (TRUE) {
+		max = maxindex = 0;
+		if (prGlueInfo->ulFlag & GLUE_FLAG_HALT ||
+			test_and_clear_bit(GLUE_FLAG_IPI_EXIT_BIT, &prGlueInfo->ulFlag)) {
+			DBGLOG(INIT, INFO, "<1>ipi_thread should stop now...\n");
+			break;
+		}
+
+		for (i = 3; i < 14; i++) {
+			rMcrInfo.u4McrOffset = 0x60204870;
+			rMcrInfo.u4McrData = oldValueIpiCR;
+			rMcrInfo.u4McrData |= i << 28;
+			kalSetMCR(prGlueInfo, rMcrInfo);
+			rMcrInfo.u4McrOffset = 0x60204874;
+			IPIValue[i - 3] = kalGetMCR(prGlueInfo, rMcrInfo);
+			if (IPIValue[i - 3] > max) {
+				max = IPIValue[i - 3];
+				maxindex = i - 3;
+			}
+		}
+		noise = IPI_HISTOGRAM_TABLE[maxindex];
+		DBGLOG(INIT, TRACE, "ipi_thread noise = %d\n", noise);
+		kalUpdateNoise(prGlueInfo, noise);
+
+		kalDisableIPI(prGlueInfo);
+		kalEnableIPI(prGlueInfo);
+		msleep(1000);
+
+	}
+	kalDisableIPI(prGlueInfo);
+	prGlueInfo->ipi_thread = NULL;
+	DBGLOG(INIT, INFO, "ipi_thread stopped\n");
+	return 0;
+}
+#endif
 
 /*----------------------------------------------------------------------------*/
 /*!
