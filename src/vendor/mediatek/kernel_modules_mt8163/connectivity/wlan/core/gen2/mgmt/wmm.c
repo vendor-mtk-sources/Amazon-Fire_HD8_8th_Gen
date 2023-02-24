@@ -1042,16 +1042,25 @@ static void wmmGetTsmRptTimeout(P_ADAPTER_T prAdapter, ULONG ulParam)
 	rlmStartNextMeasurement(prAdapter, FALSE);
 }
 
-void wmmComposeTsmRpt(P_ADAPTER_T prAdapter, P_CMD_INFO_T prCmdInfo, PUINT_8 pucEventBuf)
+void wmmComposeTsmRpt(P_ADAPTER_T prAdapter, P_CMD_INFO_T prCmdInfo, PUINT_8 pucEventBuf, IN UINT_32 u4EventBufLen)
 {
 	struct RADIO_MEASUREMENT_REPORT_PARAMS *prRmRep = &prAdapter->rWifiVar.rRmRepParams;
 	P_IE_MEASUREMENT_REPORT_T prTsmRpt = NULL;
 	struct RM_TSM_REPORT *prTsmRptField = NULL;
-	P_CMD_GET_TSM_STATISTICS_T prTsmStatistic = (P_CMD_GET_TSM_STATISTICS_T)pucEventBuf;
+	P_CMD_GET_TSM_STATISTICS_T prTsmStatistic = NULL;
 	UINT_16 u2IeSize = OFFSET_OF(IE_MEASUREMENT_REPORT_T, aucReportFields) + sizeof(*prTsmRptField);
 	struct ACTIVE_RM_TSM_REQ *prCurrentTsmReq = NULL;
 	struct WMM_INFO *prWMMInfo = &prAdapter->rWifiVar.rWmmInfo;
 
+	if (u4EventBufLen < sizeof(CMD_GET_TSM_STATISTICS_T)) {
+		DBGLOG(WMM, WARN,
+			"Invalid event length: %d < %d \n",
+			u4EventBufLen,
+			sizeof(CMD_GET_TSM_STATISTICS_T));
+		return;
+	}
+
+	prTsmStatistic = (P_CMD_GET_TSM_STATISTICS_T)pucEventBuf;
 	prCurrentTsmReq =
 		wmmGetActiveTsmReq(prAdapter, prTsmStatistic->ucTid, !prTsmStatistic->ucReportReason, FALSE);
 	/* prCmdInfo is not NULL or report reason is 0 means it is a command reply, so we need to stop the timer */

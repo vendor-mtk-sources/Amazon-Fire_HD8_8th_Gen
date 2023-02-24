@@ -3610,6 +3610,15 @@ VOID qmHandleEventRxAddBa(IN P_ADAPTER_T prAdapter, IN P_WIFI_EVENT_T prEvent)
 
 	DBGLOG(QM, INFO, "QM:Event +RxBa\n");
 
+	if (prEvent->u2PacketLen < sizeof(EVENT_RX_ADDBA_T))
+	{
+		DBGLOG(QM, WARN,
+			"RX EVENT packet length too small %d %d %u\n",
+			prEvent->ucEID,
+			prEvent->u2PacketLen,
+			sizeof(EVENT_RX_ADDBA_T));
+		return;
+	}
 	prEventRxAddBa = (P_EVENT_RX_ADDBA_T) prEvent;
 	prStaRec = QM_GET_STA_REC_PTR_FROM_INDEX(prAdapter, prEventRxAddBa->ucStaRecIdx);
 
@@ -3662,6 +3671,15 @@ VOID qmHandleEventRxDelBa(IN P_ADAPTER_T prAdapter, IN P_WIFI_EVENT_T prEvent)
 	P_STA_RECORD_T prStaRec;
 
 	/* DbgPrint("QM:Event -RxBa\n"); */
+	if (prEvent->u2PacketLen < sizeof(EVENT_RX_DELBA_T))
+	{
+		DBGLOG(QM, WARN,
+			"RX EVENT packet length too small %d %d %u\n",
+			prEvent->ucEID,
+			prEvent->u2PacketLen,
+			sizeof(EVENT_RX_DELBA_T));
+		return;
+	}
 
 	prEventRxDelBa = (P_EVENT_RX_DELBA_T) prEvent;
 	prStaRec = QM_GET_STA_REC_PTR_FROM_INDEX(prAdapter, prEventRxDelBa->ucStaRecIdx);
@@ -4929,6 +4947,15 @@ VOID qmHandleEventBssAbsencePresence(IN P_ADAPTER_T prAdapter, IN P_WIFI_EVENT_T
 	P_BSS_INFO_T prBssInfo;
 	BOOLEAN fgIsNetAbsentOld;
 
+	if (prEvent->u2PacketLen < sizeof(EVENT_BSS_ABSENCE_PRESENCE_T))
+	{
+		DBGLOG(QM, WARN,
+			"RX EVENT packet length too small %d %d %u\n",
+			prEvent->ucEID,
+			prEvent->u2PacketLen,
+			sizeof(EVENT_BSS_ABSENCE_PRESENCE_T));
+		return;
+	}
 	prEventBssStatus = (P_EVENT_BSS_ABSENCE_PRESENCE_T) prEvent;
 	prBssInfo = &(prAdapter->rWifiVar.arBssInfo[prEventBssStatus->ucNetTypeIdx]);
 	fgIsNetAbsentOld = prBssInfo->fgIsNetAbsent;
@@ -4970,7 +4997,15 @@ VOID qmHandleEventStaChangePsMode(IN P_ADAPTER_T prAdapter, IN P_WIFI_EVENT_T pr
 	BOOLEAN fgIsInPSOld;
 
 	/* DbgPrint("QM:Event -RxBa\n"); */
-
+	if (prEvent->u2PacketLen < sizeof(EVENT_STA_CHANGE_PS_MODE_T))
+	{
+		DBGLOG(QM, WARN,
+			"RX EVENT packet length too small %d %d %u\n",
+			prEvent->ucEID,
+			prEvent->u2PacketLen,
+			sizeof(EVENT_STA_CHANGE_PS_MODE_T));
+		return;
+	}
 	prEventStaChangePsMode = (P_EVENT_STA_CHANGE_PS_MODE_T) prEvent;
 	prStaRec = QM_GET_STA_REC_PTR_FROM_INDEX(prAdapter, prEventStaChangePsMode->ucStaRecIdx);
 	ASSERT(prStaRec);
@@ -5010,6 +5045,15 @@ VOID qmHandleEventStaUpdateFreeQuota(IN P_ADAPTER_T prAdapter, IN P_WIFI_EVENT_T
 	P_EVENT_STA_UPDATE_FREE_QUOTA_T prEventStaUpdateFreeQuota;
 	P_STA_RECORD_T prStaRec;
 
+	if (prEvent->u2PacketLen < sizeof(EVENT_STA_UPDATE_FREE_QUOTA_T))
+	{
+		DBGLOG(QM, WARN,
+			"RX EVENT packet length too small %d %d %u\n",
+			prEvent->ucEID,
+			prEvent->u2PacketLen,
+			sizeof(EVENT_STA_UPDATE_FREE_QUOTA_T));
+		return;
+	}
 	prEventStaUpdateFreeQuota = (P_EVENT_STA_UPDATE_FREE_QUOTA_T) prEvent;
 	prStaRec = QM_GET_STA_REC_PTR_FROM_INDEX(prAdapter, prEventStaUpdateFreeQuota->ucStaRecIdx);
 	ASSERT(prStaRec);
@@ -5252,7 +5296,7 @@ VOID qmInsertNoNeedWaitPkt(IN P_ADAPTER_T prAdapter,
 
 VOID qmHandleEventDropByFW(IN P_ADAPTER_T prAdapter, IN P_WIFI_EVENT_T prEvent)
 {
-	P_EVENT_PACKET_DROP_BY_FW_T prDropSSNEvt = (P_EVENT_PACKET_DROP_BY_FW_T) prEvent;
+	P_EVENT_PACKET_DROP_BY_FW_T prDropSSNEvt;
 	P_RX_BA_ENTRY_T prRxBaEntry;
 	UINT_16 u2StartSSN;
 	UINT_8 u1BitmapSSN;
@@ -5260,6 +5304,16 @@ VOID qmHandleEventDropByFW(IN P_ADAPTER_T prAdapter, IN P_WIFI_EVENT_T prEvent)
 	UINT_16 u2OfCount;
 	SW_RFB_T rSwRfb;
 
+	if (prEvent->u2PacketLen < sizeof(EVENT_PACKET_DROP_BY_FW_T))
+	{
+		DBGLOG(QM, WARN,
+			"RX EVENT packet length too small %d %d %u\n",
+			prEvent->ucEID,
+			prEvent->u2PacketLen,
+			sizeof(EVENT_PACKET_DROP_BY_FW_T));
+		return;
+	}
+	prDropSSNEvt = (P_EVENT_PACKET_DROP_BY_FW_T) prEvent;
 	u2StartSSN = QM_GET_DROP_BY_FW_SSN(prDropSSNEvt->u2StartSSN);
 
 	/* Get target Rx BA entry */
@@ -5579,7 +5633,7 @@ VOID qmHandleReorderBubbleTimeout(IN P_ADAPTER_T prAdapter, IN ULONG ulParamPtr)
 
 VOID qmHandleEventCheckReorderBubble(IN P_ADAPTER_T prAdapter, IN P_WIFI_EVENT_T prEvent)
 {
-	P_EVENT_CHECK_REORDER_BUBBLE_T prCheckReorderEvent = (P_EVENT_CHECK_REORDER_BUBBLE_T) prEvent;
+	P_EVENT_CHECK_REORDER_BUBBLE_T prCheckReorderEvent;
 	P_RX_BA_ENTRY_T prReorderQueParm;
 	P_QUE_T prReorderQue;
 	QUE_T rReturnedQue;
@@ -5588,6 +5642,17 @@ VOID qmHandleEventCheckReorderBubble(IN P_ADAPTER_T prAdapter, IN P_WIFI_EVENT_T
 
 	QUEUE_INITIALIZE(prReturnedQue);
 
+	if (prEvent->u2PacketLen < sizeof(EVENT_CHECK_REORDER_BUBBLE_T))
+	{
+		DBGLOG(QM, WARN,
+			"RX EVENT packet length too small %d %d %u\n",
+			prEvent->ucEID,
+			prEvent->u2PacketLen,
+			sizeof(EVENT_CHECK_REORDER_BUBBLE_T));
+		return;
+	}
+
+	prCheckReorderEvent = (P_EVENT_CHECK_REORDER_BUBBLE_T) prEvent;
 	/* Get target Rx BA entry */
 	prReorderQueParm = qmLookupRxBaEntry(prAdapter, prCheckReorderEvent->ucStaRecIdx, prCheckReorderEvent->ucTid);
 
@@ -5737,6 +5802,11 @@ u_int8_t qmDetectRxInvalidEAPOL(IN P_ADAPTER_T prAdapter,
 		return FALSE;
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
 
+	if (prStaRec == NULL) {
+		DBGLOG(QM, INFO, "get staRec fail\n");
+		return FALSE;
+	}
+
 	prBssInfo = &prAdapter->rWifiVar.arBssInfo[prStaRec->ucNetTypeIndex];
 
 	/* return FALSE if OP_MODE is not SAP */
@@ -5801,7 +5871,9 @@ void qmNotifyBAOffloadtMetic(IN P_ADAPTER_T prAdapter,
 	PUINT_8 pucIE;
 	UINT_16 u2IeLen;
 	UINT_16 u2IeOffSet = 0;
-	P_IE_VENDOR_HDR_T prVendorIE;;
+	P_IE_VENDOR_HDR_T prVendorIE;
+	int minerva_ret = -1;
+	uint8_t metadata_str2[128];
 
 	int ret = -1;
 
@@ -5820,6 +5892,7 @@ void qmNotifyBAOffloadtMetic(IN P_ADAPTER_T prAdapter,
 	pucIE = &prBssDesc->aucIEBuf[0];
 	u2IeLen = prBssDesc->u2IELength;
 	kalMemSet(metadata_str, 0x00, sizeof(metadata_str));
+	kalMemSet(metadata_str2, 0x00, sizeof(metadata_str2));
 
 	IE_FOR_EACH(pucIE, u2IeLen, u2IeOffSet) {
 		if ((IE_ID(pucIE) == ELEM_ID_VENDOR) && (IE_LEN(pucIE) >3)) {
@@ -5834,12 +5907,21 @@ void qmNotifyBAOffloadtMetic(IN P_ADAPTER_T prAdapter,
 		"!{\"d\"#{\"metadata\"#\"%02x-%02x-%02x\"$\"metadata1\"#\"%02x-%02x-%02x\"}}",
 		prBssDesc->aucBSSID[0], prBssDesc->aucBSSID[1], prBssDesc->aucBSSID[2],
 		aucOui[0], aucOui[1],aucOui[2]);
+	sprintf(metadata_str2,
+		"metadata=%02x-%02x-%02x;SY,metadata1=%02x-%02x-%02x;SY:",
+		prBssDesc->aucBSSID[0], prBssDesc->aucBSSID[1], prBssDesc->aucBSSID[2],
+		aucOui[0], aucOui[1],aucOui[2]);
 	ret = log_counter_to_vitals(ANDROID_LOG_INFO,
 		"Kernel vitals", "wifiKDM", "wifi-num-ba-offloading",
 		key_str[type], u4BACnt, "count", metadata_str, VITALS_NORMAL);
 	if (ret)
 		DBGLOG(QM, ERROR,
 			"log_counter_to_vitals fail: type:%s; buffer Cnt:%d\n",
+			key_str[type],u4BACnt);
+	minerva_ret = minerva_log_counter_to_vitals(ANDROID_LOG_INFO, "wifi-num-ba-offloading", key_str[type], u4BACnt, metadata_str2);
+	if (minerva_ret)
+		DBGLOG(QM, ERROR,
+			"log_counter_to_vitals_new fail: type:%s; buffer Cnt:%d\n",
 			key_str[type],u4BACnt);
 }
 #endif
@@ -5928,6 +6010,15 @@ void qmHandleEventBaOffloadIndication(IN P_ADAPTER_T prAdapter,
 
 	kalMemZero(&sBaOffloadInfo, sizeof(struct BAOFFLOAD_INDICATE_INFO));
 
+	if (prEvent->u2PacketLen < (sizeof(WIFI_EVENT_T) + sizeof(struct EVENT_BAOFFLOAD_INDICATE)))
+	{
+		DBGLOG(QM, WARN,
+			"RX EVENT packet length too small %d %d %u\n",
+			prEvent->ucEID,
+			prEvent->u2PacketLen,
+			sizeof(struct EVENT_BAOFFLOAD_INDICATE));
+		return;
+	}
 	prEventBaOffloadIndicate =
 		(struct EVENT_BAOFFLOAD_INDICATE *)(prEvent->aucBuffer);
 

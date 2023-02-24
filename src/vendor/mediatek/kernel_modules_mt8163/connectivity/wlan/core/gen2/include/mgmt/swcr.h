@@ -177,7 +177,7 @@ VOID swCtrlSwCr(P_ADAPTER_T prAdapter, UINT_8 ucRead, UINT_16 u2Addr, UINT_32 *p
 /* Support Debug */
 VOID swCrDebugCheck(P_ADAPTER_T prAdapter, P_CMD_SW_DBG_CTRL_T prCmdSwCtrl);
 VOID swCrDebugCheckTimeout(IN P_ADAPTER_T prAdapter, ULONG ulParam);
-VOID swCrDebugQuery(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf);
+VOID swCrDebugQuery(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf, IN UINT_32 u4EventBufLen);
 VOID swCrDebugQueryTimeout(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo);
 /*******************************************************************************
 *                              F U N C T I O N S

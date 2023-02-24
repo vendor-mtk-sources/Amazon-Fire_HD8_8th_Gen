@@ -440,6 +440,15 @@ VOID cnmChMngrHandleChEvent(P_ADAPTER_T prAdapter, P_WIFI_EVENT_T prEvent)
 	ASSERT(prAdapter);
 	ASSERT(prEvent);
 
+	if (prEvent->u2PacketLen < (sizeof(WIFI_EVENT_T) + sizeof(EVENT_CH_PRIVILEGE_T)))
+	{
+		DBGLOG(CNM, WARN,
+			"RX EVENT packet length too small %d %d %u\n",
+			prEvent->ucEID,
+			prEvent->u2PacketLen,
+			sizeof(EVENT_CH_PRIVILEGE_T));
+		return;
+	}
 	prEventBody = (P_EVENT_CH_PRIVILEGE_T) (prEvent->aucBuffer);
 	prChResp = (P_MSG_CH_GRANT_T)
 	    cnmMemAlloc(prAdapter, RAM_TYPE_MSG, sizeof(MSG_CH_GRANT_T));

@@ -1625,6 +1625,7 @@ wlanAdapterStart(IN P_ADAPTER_T prAdapter,
 		/* clock gating workaround */
 		prAdapter->fgIsClockGatingEnabled = FALSE;
 #endif
+	prAdapter->r1xTxDoneStatus = TX_RESULT_UNINITIALIZED;
 
 	} while (FALSE);
 
@@ -1901,7 +1902,7 @@ WLAN_STATUS wlanProcessCommandQueue(IN P_ADAPTER_T prAdapter, IN P_QUE_T prCmdQu
 					/* send success */
 					if (prCmdInfo->pfCmdDoneHandler) {
 						prCmdInfo->pfCmdDoneHandler(prAdapter, prCmdInfo,
-									    prCmdInfo->pucInfoBuffer);
+									    prCmdInfo->pucInfoBuffer, prCmdInfo->u2InfoBufLen);
 					}
 				} else {
 					/* send fail */
@@ -3494,7 +3495,7 @@ WLAN_STATUS wlanUpdateNetworkAddress(IN P_ADAPTER_T prAdapter)
 		return WLAN_STATUS_PENDING;
 	}
 	/* send ok without response */
-	nicCmdEventQueryAddress(prAdapter, prCmdInfo, (PUINT_8) prCmdBasicConfig);
+	nicCmdEventQueryAddress(prAdapter, prCmdInfo, (PUINT_8) prCmdBasicConfig, sizeof(CMD_BASIC_CONFIG));
 	cmdBufFreeCmdInfo(prAdapter, prCmdInfo);
 
 	return WLAN_STATUS_SUCCESS;
@@ -3563,6 +3564,10 @@ BOOLEAN wlanProcessSecurityFrame(IN P_ADAPTER_T prAdapter, IN P_NATIVE_PACKET pr
 
 		if (fgIs1x == FALSE)
 			return FALSE;
+		if (prAdapter->fgIsTest1xTx) {
+			prAdapter->r1xTxDoneStatus = TX_RESULT_1XTX_CLEAR;
+			return TRUE;
+		}
 
 		/* get a free command entry */
 		KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_CMD_RESOURCE);
@@ -3633,10 +3638,12 @@ BOOLEAN wlanProcessSecurityFrame(IN P_ADAPTER_T prAdapter, IN P_NATIVE_PACKET pr
 * @return none
 */
 /*----------------------------------------------------------------------------*/
-VOID wlanSecurityFrameTxDone(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf)
+VOID wlanSecurityFrameTxDone(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf, IN UINT_32 u4EventBufLen)
 {
 	ASSERT(prAdapter);
 	ASSERT(prCmdInfo);
+
+	prAdapter->r1xTxDoneStatus = TX_RESULT_SUCCESS;
 
 	if (prCmdInfo->eNetworkType == NETWORK_TYPE_AIS_INDEX &&
 	    prAdapter->rWifiVar.rAisSpecificBssInfo.fgCounterMeasure) {
@@ -3671,6 +3678,7 @@ VOID wlanSecurityFrameTxTimeout(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdI
 	ASSERT(prCmdInfo);
 
 	/* free the packet */
+	prAdapter->r1xTxDoneStatus = WLAN_STATUS_FAILURE;
 	kalSecurityFrameSendComplete(prAdapter->prGlueInfo, prCmdInfo->prPacket, WLAN_STATUS_FAILURE);
 }
 
@@ -6405,3 +6413,29 @@ void disconnect_sta_by_network(P_ADAPTER_T prAdapter,
 		break;
 	}
 }
+
+#if CFG_SUPPORT_RSSI_STATISTICS
+void wlanGetTxRxCount(IN P_ADAPTER_T prAdapter, uint8_t ucAction)
+{
+	struct PARAM_RX_COUNT prRxCount;
+	uint32_t rStatus;
+
+
+	prRxCount.ucAction = ucAction;
+	DBGLOG(REQ, TRACE, "wlanGetTxRxCount %d\n", prRxCount.ucAction);
+	rStatus = wlanSendSetQueryCmd(prAdapter,
+			    CMD_ID_GET_RX_COUNT,
+			    FALSE,
+			    TRUE,
+			    FALSE,
+			    nicCmdEventRecordTxRxCount,
+			    nicOidCmdTimeoutCommon,
+			    sizeof(struct PARAM_RX_COUNT),
+			    (uint8_t *) &prRxCount,
+			    NULL, 0);
+
+	if (rStatus != WLAN_STATUS_SUCCESS && rStatus != WLAN_STATUS_PENDING)
+		DBGLOG(REQ, ERROR, "Failed with status %d\n", rStatus);
+}
+#endif
+

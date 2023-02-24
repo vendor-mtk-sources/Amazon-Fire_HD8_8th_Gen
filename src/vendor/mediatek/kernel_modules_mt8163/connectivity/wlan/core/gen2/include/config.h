@@ -1599,6 +1599,8 @@
 #define CFG_SUPPORT_OOBE_AP_MODE            0
 #endif
 
+#define CFG_SUPPORT_RSSI_STATISTICS         1
+
 /*------------------------------------------------------------------------------
  * Support a new command for user to dump current nvrame settings which are configured by driver.   2017/10, LC
  *------------------------------------------------------------------------------
@@ -1679,6 +1681,15 @@
 #define CFG_IGNORE_1X_CLASS_ERROR 1
 
 #define CFG_SUPPORT_SCAN_CHANNEL_REQUEST   1
+
+#define CFG_SUPPORT_RN 1/*fos_change*/
+
+/* Enable Fake EAPOL Detection */
+#define CFG_SUPPORT_FAKE_EAPOL_DETECTION 1
+
+#define CFG_SUPPORT_BA_OFFLOAD 1 /* fos_change oneline */
+#define CFG_SUPPORT_BA_OFFLOAD_METRIC 1 /* fos_change oneline */
+
 /*******************************************************************************
 *                             D A T A   T Y P E S
 ********************************************************************************

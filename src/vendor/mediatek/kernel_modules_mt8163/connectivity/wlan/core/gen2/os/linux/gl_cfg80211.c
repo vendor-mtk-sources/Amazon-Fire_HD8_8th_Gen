@@ -2198,7 +2198,6 @@ mtk_cfg80211_testmode_get_sta_statistics(IN struct wiphy *wiphy, IN void *data, 
 		return -ENOMEM;
 	}
 
-	DBGLOG(QM, TRACE, "Get [ %pM ] STA statistics\n", prParams->aucMacAddr);
 
 	kalMemZero(&rQueryStaStatistics, sizeof(rQueryStaStatistics));
 	COPY_MAC_ADDR(rQueryStaStatistics.aucMacAddr, prParams->aucMacAddr);
@@ -3144,6 +3143,13 @@ int mtk_cfg80211_testmode_cmd(IN struct wiphy *wiphy, IN struct wireless_dev *wd
 			i4Status = mtk_cfg80211_process_str_cmd(prGlueInfo,
 					(PUINT_8)(prParams+1), len - sizeof(*prParams));
 			break;
+
+#if CFG_SUPPORT_RSSI_STATISTICS
+		case TESTMODE_RSSI_STATISTICS:
+			i4Status = mtk_cfg80211_testmode_get_rssi_statistics(wiphy,
+					data, len, prGlueInfo);
+			break;
+#endif
 		default:
 			i4Status = -EINVAL;
 			break;
@@ -4191,6 +4197,7 @@ int mtk_cfg80211_vendor_packet_keep_alive_start(struct wiphy *wiphy, struct wire
 	P_PARAM_PACKET_KEEPALIVE_T prPkt = NULL;
 	struct nlattr *attr[MKEEP_ALIVE_ATTRIBUTE_PERIOD_MSEC + 1];
 	UINT_32 i = 0;
+	unsigned short u2IpPktLen = 0;
 
 	ASSERT(wiphy);
 	ASSERT(wdev);
@@ -4224,7 +4231,9 @@ int mtk_cfg80211_vendor_packet_keep_alive_start(struct wiphy *wiphy, struct wire
 				? sizeof(prPkt->pIpPkt):nla_get_u16(attr[i]);
 				break;
 			case MKEEP_ALIVE_ATTRIBUTE_IP_PKT:
-				kalMemCopy(prPkt->pIpPkt, nla_data(attr[i]), prPkt->u2IpPktLen);
+				u2IpPktLen = prPkt->u2IpPktLen <= MAX_IP_PKT_LEN
+					? prPkt->u2IpPktLen : MAX_IP_PKT_LEN;
+				kalMemCopy(prPkt->pIpPkt, nla_data(attr[i]), u2IpPktLen);
 				break;
 			case MKEEP_ALIVE_ATTRIBUTE_SRC_MAC_ADDR:
 				kalMemCopy(prPkt->ucSrcMacAddr, nla_data(attr[i]), sizeof(mac_addr));
@@ -5304,5 +5313,138 @@ int mtk_cfg80211_update_ft_ies(struct wiphy *wiphy, struct net_device *dev,
 		DBGLOG(OID, INFO, "update Ft IE failed\n");
 	return 0;
 }
+#endif
+#if CFG_SUPPORT_RSSI_STATISTICS
+int
+mtk_cfg80211_testmode_get_rssi_statistics(IN struct wiphy
+		*wiphy, IN void *data, IN int len,
+		P_GLUE_INFO_T prGlueInfo)
+{
+	uint32_t rStatus = WLAN_STATUS_SUCCESS;
+	struct PARAM_GET_RSSI_STATISTICS rQueryRssiStatistics;
+
+	struct NL80211_DRIVER_GET_RSSI_STATISTICS_PARAMS *prParams = NULL;
+	struct sk_buff *skb;
+	uint8_t ucData = 0;
+	uint32_t u4BufLen = 0;
+	uint32_t u4Data = 0;
+
+	ASSERT(wiphy);
+	ASSERT(prGlueInfo);
+
+	DBGLOG(QM, TRACE, "mtk_cfg80211_testmode_get_rssi_statistics\n");
+
+	if (!data || !len) {
+		DBGLOG(QM, ERROR, "data or len is invalid len=%d\n", len);
+		return -EINVAL;
+	}
+
+	prParams = (struct NL80211_DRIVER_GET_RSSI_STATISTICS_PARAMS *) data;
+	if (prParams == NULL) {
+		DBGLOG(QM, ERROR, "prParams is NULL, data=%p, len=%d\n",
+		       data, len);
+		return -EINVAL;
+	}
+
+	skb = cfg80211_testmode_alloc_reply_skb(wiphy,
+				sizeof(struct PARAM_GET_RSSI_STATISTICS) + 1);
+	if (!skb) {
+		DBGLOG(QM, ERROR, "allocate skb failed:%x\n", rStatus);
+		return -ENOMEM;
+	}
+
+	kalMemZero(&rQueryRssiStatistics,
+		   sizeof(rQueryRssiStatistics));
+
+	rStatus = kalIoctl(prGlueInfo, wlanoidQueryRssiStatistics,
+				   &rQueryRssiStatistics,
+				   sizeof(rQueryRssiStatistics),
+				   TRUE, FALSE, FALSE, FALSE, &u4BufLen);
+
+	if (rStatus != WLAN_STATUS_SUCCESS) {
+		DBGLOG(OID, INFO, "Query Rssi statistics failed\n");
+		goto nla_put_failure;
+	}
+
+	DBGLOG(REQ, TRACE, "dump rssi testmode  [%d,%d],[%d,%d],[%d,%d],[%d,%d]\n",
+				rQueryRssiStatistics.arRxRssiStatistics.ucAuthRcpi,
+				rQueryRssiStatistics.arRxRssiStatistics.ucAuthRetransmission,
+				rQueryRssiStatistics.arRxRssiStatistics.ucAssocRcpi,
+				rQueryRssiStatistics.arRxRssiStatistics.ucAssocRetransmission,
+				rQueryRssiStatistics.arRxRssiStatistics.ucM1Rcpi,
+				rQueryRssiStatistics.arRxRssiStatistics.ucM1Retransmission,
+				rQueryRssiStatistics.ucAisConnectionStatus,
+				rQueryRssiStatistics.u4RxPktNum);
+
+
+	ucData = rQueryRssiStatistics.arRxRssiStatistics.ucAssocRcpi;
+	if (unlikely(nla_put(skb,
+		NL80211_TESTMODE_ASS_RCPI_STATISTICS, sizeof(u8),
+		&ucData) < 0)) {
+		DBGLOG(QM, ERROR, "put assoc rssi fail\n");
+		goto nla_put_failure;
+	}
+	ucData = rQueryRssiStatistics.arRxRssiStatistics.ucAssocRetransmission;
+	if (unlikely(nla_put(skb,
+		NL80211_TESTMODE_ASS_RETRANMISSION_STATISTICS, sizeof(u8),
+		&ucData) < 0)) {
+		DBGLOG(QM, ERROR, "put assoc retransmission flag fail\n");
+		goto nla_put_failure;
+	}
+
+	ucData = rQueryRssiStatistics.arRxRssiStatistics.ucAuthRcpi;
+	if (unlikely(nla_put(skb,
+		    NL80211_TESTMODE_AUTH_RCPI_STATISTICS, sizeof(u8),
+		    &ucData) < 0)) {
+			DBGLOG(QM, ERROR, "put auth rssi fail\n");
+			goto nla_put_failure;
+	}
+	ucData = rQueryRssiStatistics.arRxRssiStatistics.ucAuthRetransmission;
+	if (unlikely(nla_put(skb,
+		    NL80211_TESTMODE_AUTH_RETRANMISSION_STATISTICS, sizeof(u8),
+		    &ucData) < 0)) {
+			DBGLOG(QM, ERROR, "put auth retransmission flag fail\n");
+			goto nla_put_failure;
+	}
+
+	ucData = rQueryRssiStatistics.arRxRssiStatistics.ucM1Rcpi;
+	if (unlikely(nla_put(skb,
+		    NL80211_TESTMODE_EAPOL_RCPI_STATISTICS, sizeof(u8),
+		    &ucData) < 0)) {
+			DBGLOG(QM, ERROR, "put eapol rssi fail\n");
+			goto nla_put_failure;
+	}
+	ucData = rQueryRssiStatistics.arRxRssiStatistics.ucM1Retransmission;
+	if (unlikely(nla_put(skb,
+		    NL80211_TESTMODE_EAPOL_RETRANMISSION_STATISTICS, sizeof(u8),
+		    &ucData) < 0)) {
+			DBGLOG(QM, ERROR, "put eapol retransmission flag fail\n");
+			goto nla_put_failure;
+	}
+
+	ucData = rQueryRssiStatistics.ucAisConnectionStatus;
+	if (unlikely(nla_put(skb,
+		    NL80211_TESTMODE_AIS_CONNECTION_STATISTICS, sizeof(u8),
+		    &ucData) < 0)) {
+			DBGLOG(QM, ERROR, "put ais connection status fail\n");
+			goto nla_put_failure;
+	}
+
+	u4Data = rQueryRssiStatistics.u4RxPktNum;
+	if (unlikely(nla_put(skb,
+		    NL80211_TESTMODE_RX_COUNT_STATISTICS, sizeof(u32),
+		    &u4Data) < 0)) {
+			DBGLOG(QM, ERROR, "put Rx count fail\n");
+			goto nla_put_failure;
+	}
+
+	return cfg80211_testmode_reply(skb);
+nla_put_failure:
+	/* nal_put_skb_fail */
+	kfree_skb(skb);
+
+	return -EFAULT;
+}
+
 #endif
 

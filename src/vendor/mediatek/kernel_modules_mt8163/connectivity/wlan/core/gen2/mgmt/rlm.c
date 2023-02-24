@@ -398,6 +398,7 @@ static VOID rlmFreeMeasurementResources(P_ADAPTER_T prAdapter);
 VOID rlmFsmEventInit(P_ADAPTER_T prAdapter)
 {
 	ASSERT(prAdapter);
+	P_BSS_INFO_T prBssInfo;
 
 	/* Note: assume TIMER_T structures are reset to zero or stopped
 	 * before invoking this function.
@@ -414,6 +415,13 @@ VOID rlmFsmEventInit(P_ADAPTER_T prAdapter)
 	prAdapter->rWifiVar.rRmReqParams.eState = RM_NO_REQUEST;
 	LINK_INITIALIZE(&prAdapter->rWifiVar.rRmRepParams.rFreeReportLink);
 	LINK_INITIALIZE(&prAdapter->rWifiVar.rRmRepParams.rReportLink);
+#endif
+#if CFG_SUPPORT_DFS
+	prBssInfo = &(prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX]);
+
+	cnmTimerInitTimer(prAdapter,
+				&prBssInfo->rCsaTimer,
+				(PFN_MGMT_TIMEOUT_FUNC)rlmCsaTimeout, (ULONG) NULL);
 #endif
 }
 
@@ -444,6 +452,9 @@ VOID rlmFsmEventUninit(P_ADAPTER_T prAdapter)
 	}
 #if CFG_SUPPORT_802_11K
 	rlmCancelRadioMeasurement(prAdapter);
+#endif
+#if CFG_SUPPORT_DFS
+	cnmTimerStopTimer(prAdapter, &prBssInfo->rCsaTimer);
 #endif
 }
 
@@ -991,7 +1002,6 @@ static UINT_8 rlmRecIeInfoForClient(P_ADAPTER_T prAdapter, P_BSS_INFO_T prBssInf
 #if CFG_SUPPORT_QUIET && 0
 	BOOLEAN fgHasQuietIE = FALSE;
 #endif
-
 	ASSERT(prAdapter);
 	ASSERT(prBssInfo);
 	ASSERT(pucIE);
@@ -1118,7 +1128,6 @@ static UINT_8 rlmRecIeInfoForClient(P_ADAPTER_T prAdapter, P_BSS_INFO_T prBssInf
 			break;
 		}		/* end of switch */
 	}			/* end of IE_FOR_EACH */
-
 	/* Some AP will have wrong channel number (255) when running time.
 	 * Check if correct channel number information. 20110501
 	 */
@@ -1753,24 +1762,38 @@ VOID rlmProcessSpecMgtAction(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb)
 VOID rlmProcessChannelSwitchIE(P_ADAPTER_T prAdapter, P_IE_CHANNEL_SWITCH_T prChannelSwitchIE)
 {
 	P_BSS_INFO_T prAisBssInfo;
+	P_STA_RECORD_T prStaRec;
 
 	ASSERT(prAdapter);
 	ASSERT(prChannelSwitchIE);
-
-	DBGLOG(RLM, INFO, "[5G DFS] rlmProcessChannelSwitchIE \r\n");
-	DBGLOG(RLM, INFO, "[5G DFS] ucChannelSwitchMode[%d], ucChannelSwitchCount[%d], ucNewChannelNum[%d] \r\n",
-	       prChannelSwitchIE->ucChannelSwitchMode,
-	       prChannelSwitchIE->ucChannelSwitchCount, prChannelSwitchIE->ucNewChannelNum);
-	if (prChannelSwitchIE->ucChannelSwitchMode == 1) {
-		prAisBssInfo = &(prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX]);
-		DBGLOG(RLM, INFO, "[5G DFS] switch channel [%d]->[%d] \r\n", prAisBssInfo->ucPrimaryChannel,
-		       prChannelSwitchIE->ucNewChannelNum);
-		prAisBssInfo->ucPrimaryChannel = prChannelSwitchIE->ucNewChannelNum;
-		nicUpdateBss(prAdapter, prAisBssInfo->ucNetTypeIndex);
+	prAisBssInfo = &(prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX]);
+	ASSERT(prAisBssInfo);
+	prStaRec = prAisBssInfo->prStaRecOfAP;
+	if (!prStaRec) {
+		DBGLOG(RLM, INFO, "[5G DFS] station can't be Null\n");
+		return;
 	}
 
-}
+	DBGLOG(RLM, TRACE, "[5G DFS] ucChannelSwitchMode[%d], ucChannelSwitchCount[%d], ucNewChannelNum[%d] \r\n",
+		prChannelSwitchIE->ucChannelSwitchMode,
+		prChannelSwitchIE->ucChannelSwitchCount, prChannelSwitchIE->ucNewChannelNum);
 
+	if (prChannelSwitchIE->ucChannelSwitchMode == 1) {
+
+		prStaRec->fgIsValid = FALSE;
+		prStaRec->fgIsTxAllowed = FALSE;
+	}
+
+	if (prChannelSwitchIE->ucChannelSwitchCount) {
+		cnmTimerStopTimer(prAdapter, &prAisBssInfo->rCsaTimer);
+		cnmTimerStartTimer(prAdapter, &prAisBssInfo->rCsaTimer,
+				prAisBssInfo->u2BeaconInterval * prChannelSwitchIE->ucChannelSwitchCount);
+		DBGLOG(RLM, INFO, "Channel switch Countdown: %d msecs\n",
+				prAisBssInfo->u2BeaconInterval * prChannelSwitchIE->ucChannelSwitchCount);
+
+		prAisBssInfo->ucCuPrimaryChannel = prChannelSwitchIE->ucNewChannelNum;
+	}
+}
 #endif
 
 #if (CFG_SUPPORT_TXR_ENC == 1)
@@ -2437,3 +2460,56 @@ VOID rlmSetMaxTxPwrLimit(IN P_ADAPTER_T prAdapter, INT_8 cLimit, UINT_8 ucEnable
 					  (PUINT_8) &rTxPwrLimit, NULL, 0);
 }
 #endif
+#if CFG_SUPPORT_DFS
+VOID rlmCsaTimeout(P_ADAPTER_T prAdapter, ULONG ulParamPtr)
+{
+
+	P_BSS_INFO_T prAisBssInfo;
+	P_STA_RECORD_T prStaRec;
+	PARAM_SSID_T rSsid;
+	P_BSS_DESC_T prBssDesc = NULL;
+
+	ASSERT(prAdapter);
+	prAisBssInfo = &(prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX]);
+	if (!prAisBssInfo) {
+		DBGLOG(AIS, INFO, "No prBssInfo\n");
+		return;
+	}
+
+	prStaRec = prAisBssInfo->prStaRecOfAP;
+
+	if (!prStaRec) {
+		DBGLOG(AIS, INFO, "No prStaRec\n");
+		return;
+	}
+
+	prAisBssInfo->ucPrimaryChannel = prAisBssInfo->ucCuPrimaryChannel;
+	DBGLOG(RLM, INFO, "[5G DFS] switch channel to [%d]\r\n", prAisBssInfo->ucPrimaryChannel);
+	nicUpdateBss(prAdapter, prAisBssInfo->ucNetTypeIndex);
+	prStaRec->fgIsValid = TRUE;
+	prStaRec->fgIsTxAllowed = TRUE;
+	COPY_SSID(rSsid.aucSsid, rSsid.u4SsidLen,
+		  prAisBssInfo->aucSSID, prAisBssInfo->ucSSIDLen);
+	prBssDesc = scanSearchBssDescByBssidAndSsid(
+			prAdapter, prAisBssInfo->aucBSSID, TRUE, &rSsid);
+	if (prBssDesc) {
+		DBGLOG(RLM, INFO,
+		       "DFS: BSS: " MACSTR
+		       " Desc found, channel from %u to %u with sco:%u\n ",
+		       MAC2STR(prAisBssInfo->aucBSSID),
+		       prBssDesc->ucChannelNum, prAisBssInfo->ucPrimaryChannel,
+		       prAisBssInfo->eBssSCO);
+		prBssDesc->ucChannelNum = prAisBssInfo->ucPrimaryChannel;
+		prBssDesc->eSco = prAisBssInfo->eBssSCO;
+		kalIndicateChannelSwitch(
+			prAdapter->prGlueInfo,
+			prAisBssInfo->eBssSCO,
+			prBssDesc->ucChannelNum);
+	} else {
+		DBGLOG(RLM, INFO,
+		       "DFS: BSS: " MACSTR " Desc is not found\n ",
+		       MAC2STR(prAisBssInfo->aucBSSID));
+	}
+}
+#endif
+

@@ -175,7 +175,9 @@ extern VOID rlmCmd(P_GLUE_INFO_T prGlueInfo, UINT_8 *prInBuf, UINT_32 u4InBufLen
 #define IOCTL_SET_STRUCT_FOR_EM         (SIOCIWFIRSTPRIV + 11)
 #define IOCTL_SET_INTS                  (SIOCIWFIRSTPRIV + 12)
 #define IOCTL_GET_INTS                  (SIOCIWFIRSTPRIV + 13)
-#define IOCTL_SET_STRING				(SIOCIWFIRSTPRIV + 14)
+#define IOCTL_SET_STRING		(SIOCIWFIRSTPRIV + 14)
+#define IOCTL_GET_DRIVER                (SIOCIWFIRSTPRIV + 15)
+
 
 #define PRIV_CMD_REG_DOMAIN             0
 #define PRIV_CMD_BEACON_PERIOD          1

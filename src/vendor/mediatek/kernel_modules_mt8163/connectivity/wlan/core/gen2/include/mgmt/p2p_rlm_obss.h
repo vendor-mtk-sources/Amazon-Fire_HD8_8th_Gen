@@ -63,7 +63,7 @@ VOID rlmProcessPublicAction(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb);
 
 VOID rlmProcessHtAction(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb);
 
-VOID rlmHandleObssStatusEventPkt(P_ADAPTER_T prAdapter, P_EVENT_AP_OBSS_STATUS_T prObssStatus);
+VOID rlmHandleObssStatusEventPkt(P_ADAPTER_T prAdapter, P_EVENT_AP_OBSS_STATUS_T prObssStatus, UINT_32 u4EventBufLen);
 
 UINT_8 rlmObssChnlLevel(P_BSS_INFO_T prBssInfo, ENUM_BAND_T eBand, UINT_8 ucPriChannel, ENUM_CHNL_EXT_T eExtend);
 

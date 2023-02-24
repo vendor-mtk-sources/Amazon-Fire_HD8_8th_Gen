@@ -879,6 +879,7 @@ struct _BSS_INFO_T {
     /*------------------------------------------------------------------------*/
 	ENUM_BAND_T eBand;
 	UINT_8 ucPrimaryChannel;
+	UINT_8 ucCuPrimaryChannel;
 	UINT_8 ucHtOpInfo1;
 	UINT_16 u2HtOpInfo2;
 	UINT_16 u2HtOpInfo3;
@@ -917,6 +918,9 @@ struct _BSS_INFO_T {
 	UINT_8 auc5G_SecChnlList[CHNL_LIST_SZ_5G + 1];
 
 	TIMER_T rObssScanTimer;
+#if CFG_SUPPORT_DFS
+	TIMER_T rCsaTimer;
+#endif
 	UINT_16 u2ObssScanInterval;	/* in unit of sec */
 
 	BOOLEAN fgObssActionForcedTo20M;	/* GO only */
@@ -1430,10 +1434,18 @@ struct _ADAPTER_T {
 	int total_mgmtTX_timeout_count;
 	int total_mgmtRX_timeout_count;
 #endif
+#if CFG_SUPPORT_RSSI_STATISTICS
+	struct WIFI_RX_RSSI_STATISTICS arRxRssiStatistics;
+	uint32_t u4RxTotalPktNum;
+	uint32_t u4RxPktNum;
+	uint8_t ucAisConnectionStatus;
+#endif
+
 #if CFG_SUPPORT_WAKEUP_REASON_DEBUG
 	ULONG	ulSuspendFlag;
 #endif
-
+	ENUM_TX_RESULT_CODE_T r1xTxDoneStatus;
+	INT_8 fgIsTest1xTx;
 };				/* end of _ADAPTER_T */
 
 /*******************************************************************************

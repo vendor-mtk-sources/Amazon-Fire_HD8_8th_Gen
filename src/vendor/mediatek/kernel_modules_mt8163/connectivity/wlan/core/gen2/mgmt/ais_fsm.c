@@ -1498,6 +1498,10 @@ VOID aisFsmStateInit_JOIN(IN P_ADAPTER_T prAdapter, P_BSS_DESC_T prBssDesc)
 	} else {
 		ASSERT(0);
 	}
+#if CFG_SUPPORT_RSSI_STATISTICS
+	prAdapter->u4RxTotalPktNum = 0;
+	wlanGetTxRxCount(prAdapter, 0);
+#endif
 
 	/* 4 <5> Overwrite Connection Setting for eConnectionPolicy == ANY (Used by Assoc Req) */
 	if (prConnSettings->ucSSIDLen == 0)
@@ -1817,7 +1821,7 @@ VOID aisFsmStateAbort_IBSS(IN P_ADAPTER_T prAdapter)
 
 #if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMZN_METRICS_LOG)
 void aisNotifyAutoReconnectMetic(IN P_BSS_INFO_T prAisBssInfo,
-	IN P_STA_RECORD_T prStaRec, UINT_8 bConnect)
+	IN UINT_16 u2ReasonCode, UINT_8 bConnect)
 
 {
 	UINT_8 key_str[2] = {'S','\0'};
@@ -1826,9 +1830,11 @@ void aisNotifyAutoReconnectMetic(IN P_BSS_INFO_T prAisBssInfo,
 	UINT_8 metadata1;
 	UINT_16 metadata2;
 	int ret = -1;
+	int minerva_ret = -1;
+	uint8_t metadata_str2[128];
 
 	DEBUGFUNC("aisNotifyAutoReconnectMetic()");
-	if (prAisBssInfo == NULL || prStaRec == NULL) {
+	if (!prAisBssInfo) {
 		DBGLOG(AIS, ERROR,
 			"aisNotifyAutoReconnectMetic() exception\n");
 		return;
@@ -1836,17 +1842,23 @@ void aisNotifyAutoReconnectMetic(IN P_BSS_INFO_T prAisBssInfo,
 
 	metadata = prAisBssInfo->u2DeauthReason;
 	metadata1 = prAisBssInfo->ucPrimaryChannel;
-	metadata2 = prStaRec->u2ReasonCode;
+	metadata2 = u2ReasonCode;
 	kalMemSet(metadata_str, 0x00, 128);
+	kalMemSet(metadata_str2, 0x00, 128);
 	if (bConnect == TRUE) {
 		key_str [0]= 'S';
 		sprintf(metadata_str,
 			"!{\"d\"#{\"metadata\"#\"%d\"$\"metadata1\"#\"%d\"}}", metadata, metadata1);
+		sprintf(metadata_str2,
+			"metadata=%d;SY,metadata1=%d;SY:", metadata, metadata1);
 	}
 	else {
 		key_str [0]= 'F';
 		sprintf(metadata_str,
 			"!{\"d\"#{\"metadata\"#\"%d\"$\"metadata1\"#\"%d\"$\"metadata2\"#\"%d\"}}",
+			metadata, metadata1, metadata2);
+		sprintf(metadata_str2,
+			"metadata=%d;SY,metadata1=%d;SY,metadata2=%d;SY:",
 			metadata, metadata1, metadata2);
 	}
 
@@ -1857,6 +1869,11 @@ void aisNotifyAutoReconnectMetic(IN P_BSS_INFO_T prAisBssInfo,
 		DBGLOG(AIS, ERROR,
 			"log_counter_to_vitals fail: auto reconnect reason = %d %d\n",
 			metadata,ret);
+	minerva_ret = minerva_log_counter_to_vitals(ANDROID_LOG_INFO, "conn-num-autoreconnects", key_str, 1, metadata_str2);
+	if (minerva_ret)
+		DBGLOG(AIS, ERROR,
+			"minerva_log_counter_to_vitals fail: auto reconnect reason = %d %d\n",
+			metadata, minerva_ret);
 }
 #endif
 
@@ -1891,7 +1908,6 @@ VOID aisFsmSteps(IN P_ADAPTER_T prAdapter, ENUM_AIS_STATE_T eNextState)
 	P_SCAN_INFO_T prScanInfo;
 	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
 #endif
-
 	BOOLEAN fgIsTransition = (BOOLEAN) FALSE;
 
 	DEBUGFUNC("aisFsmSteps()");
@@ -1950,7 +1966,7 @@ VOID aisFsmSteps(IN P_ADAPTER_T prAdapter, ENUM_AIS_STATE_T eNextState)
 				} else {
 					SET_NET_PWR_STATE_IDLE(prAdapter, NETWORK_TYPE_AIS_INDEX);
 #if CFG_SUPPORT_PNO
-					if (prScanInfo &&
+					if (prScanInfo && prScanInfo->prPscnParam &&
 						(prScanInfo->prPscnParam->fgNLOScnEnable || prScanInfo->fgPscnOnnning)) {
 						DBGLOG(AIS, STATE, "PNO is enabled. Keep ACTIVE.  \n");
 					} else
@@ -2034,10 +2050,13 @@ VOID aisFsmSteps(IN P_ADAPTER_T prAdapter, ENUM_AIS_STATE_T eNextState)
 				if (prAisFsmInfo->ucConnTrialCount > AIS_ROAMING_CONNECTION_TRIAL_LIMIT) {
 #if CFG_SUPPORT_ROAMING
 					/*add for fos roaming metrics*/
-					if (prBssDesc->u2JoinStatus == STATUS_CODE_AUTH_TIMEOUT)
-						prRoamingFsmInfo->eRoamingStatus = ROAMING_AUTH_FAIL;
-					else
-						prRoamingFsmInfo->eRoamingStatus = ROAMING_ASSOC_FAIL;
+					if (prBssDesc) {
+						if (prBssDesc->u2JoinStatus == STATUS_CODE_AUTH_TIMEOUT)
+							prRoamingFsmInfo->eRoamingStatus = ROAMING_AUTH_FAIL;
+						else
+							prRoamingFsmInfo->eRoamingStatus = ROAMING_ASSOC_FAIL;
+					} else
+						prRoamingFsmInfo->eRoamingStatus = ROAMING_CURRENT_IS_BEST;
 
 					roamingFsmRunEventFail(prAdapter, ROAMING_FAIL_REASON_CONNLIMIT);
 #endif /* CFG_SUPPORT_ROAMING */
@@ -2109,8 +2128,7 @@ VOID aisFsmSteps(IN P_ADAPTER_T prAdapter, ENUM_AIS_STATE_T eNextState)
 					if (prAisBssInfo->fgDisConnReassoc == TRUE) {
 						kalIndicateStatusAndComplete(prAdapter->prGlueInfo,
 							WLAN_STATUS_MEDIA_DISCONNECT, NULL, 0);
-						prAisBssInfo->prStaRecOfAP->u2ReasonCode = REASON_CODE_NOT_SEARCH_BSS;
-						aisNotifyAutoReconnectMetic(prAisBssInfo, prAisBssInfo->prStaRecOfAP, FALSE);
+						aisNotifyAutoReconnectMetic(prAisBssInfo, REASON_CODE_NOT_SEARCH_BSS, FALSE);
 						prAisBssInfo->fgDisConnReassoc = FALSE;
 						eNextState = AIS_STATE_IDLE;
 						fgIsTransition = TRUE;
@@ -3044,7 +3062,7 @@ VOID aisFsmRunEventJoinComplete(IN P_ADAPTER_T prAdapter, IN P_MSG_HDR_T prMsgHd
 				GET_CURRENT_SYSTIME(&prAisBssInfo->rConnTime);
 				if (prAisBssInfo->fgDisConnReassoc == TRUE) {
 					prAisBssInfo->fgDisConnReassoc = FALSE;
-					aisNotifyAutoReconnectMetic(prAisBssInfo, prStaRec, TRUE);
+					aisNotifyAutoReconnectMetic(prAisBssInfo, prStaRec->u2ReasonCode, TRUE);
 				}
 #endif
 
@@ -3207,7 +3225,7 @@ VOID aisFsmRunEventJoinComplete(IN P_ADAPTER_T prAdapter, IN P_MSG_HDR_T prMsgHd
 						kalIndicateStatusAndComplete(prAdapter->prGlueInfo,
 							WLAN_STATUS_MEDIA_DISCONNECT, NULL, 0);
 						prAisBssInfo->fgDisConnReassoc = FALSE;
-						aisNotifyAutoReconnectMetic(prAisBssInfo, prStaRec, FALSE);
+						aisNotifyAutoReconnectMetic(prAisBssInfo, prStaRec->u2ReasonCode, FALSE);
 #endif
 					} else if (CHECK_FOR_TIMEOUT(rCurrentTime, prAisFsmInfo->rJoinReqTime,
 						 SEC_TO_SYSTIME(AIS_JOIN_TIMEOUT))) {

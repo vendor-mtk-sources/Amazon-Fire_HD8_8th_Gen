@@ -1222,7 +1222,7 @@ VOID wlanbowCmdEventSetStatus(IN P_ADAPTER_T prAdapter, IN P_AMPC_COMMAND prCmd,
 * \retval none
 */
 /*----------------------------------------------------------------------------*/
-VOID wlanbowCmdEventSetCommon(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf)
+VOID wlanbowCmdEventSetCommon(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf, IN UINT_32 u4EventBufLen)
 {
 	P_AMPC_EVENT prEvent;
 	P_BOW_COMMAND_STATUS prBowCmdStatus;
@@ -1261,7 +1261,7 @@ VOID wlanbowCmdEventSetCommon(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInf
 * \retval none
 */
 /*----------------------------------------------------------------------------*/
-VOID wlanbowCmdEventLinkConnected(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf)
+VOID wlanbowCmdEventLinkConnected(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf, IN UINT_32 u4EventBufLen)
 {
 	P_AMPC_EVENT prEvent;
 	P_BOW_LINK_CONNECTED prBowLinkConnected;
@@ -1339,7 +1339,7 @@ VOID wlanbowCmdEventLinkConnected(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCm
 * \retval none
 */
 /*----------------------------------------------------------------------------*/
-VOID wlanbowCmdEventLinkDisconnected(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf)
+VOID wlanbowCmdEventLinkDisconnected(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf, IN UINT_32 u4EventBufLen)
 {
 	P_AMPC_EVENT prEvent;
 	P_BOW_LINK_DISCONNECTED prBowLinkDisconnected;
@@ -1488,7 +1488,7 @@ VOID wlanbowCmdEventLinkDisconnected(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T p
 * \retval none
 */
 /*----------------------------------------------------------------------------*/
-VOID wlanbowCmdEventSetSetupConnection(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf)
+VOID wlanbowCmdEventSetSetupConnection(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf, IN UINT_32 u4EventBufLen)
 {
 	P_AMPC_EVENT prEvent;
 	P_BOW_COMMAND_STATUS prBowCmdStatus;
@@ -1538,7 +1538,7 @@ VOID wlanbowCmdEventSetSetupConnection(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T
 * \retval none
 */
 /*----------------------------------------------------------------------------*/
-VOID wlanbowCmdEventReadLinkQuality(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf)
+VOID wlanbowCmdEventReadLinkQuality(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf, IN UINT_32 u4EventBufLen)
 {
 	P_EVENT_LINK_QUALITY prLinkQuality;
 	P_AMPC_EVENT prEvent;
@@ -1546,8 +1546,14 @@ VOID wlanbowCmdEventReadLinkQuality(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T pr
 
 	ASSERT(prAdapter);
 
+	if (u4EventBufLen < sizeof(EVENT_LINK_QUALITY)) {
+		DBGLOG(BOW, WARN,
+			"Invalid event length: %d < %d \n",
+			u4EventBufLen,
+			sizeof(EVENT_LINK_QUALITY));
+		return;
+	}
 	prLinkQuality = (P_EVENT_LINK_QUALITY) pucEventBuf;
-
 	/* fill event header */
 	prEvent = (P_AMPC_EVENT) kalMemAlloc((sizeof(AMPC_EVENT) + sizeof(BOW_LINK_QUALITY)), VIR_MEM_TYPE);
 	if (!prEvent) {
@@ -1579,7 +1585,7 @@ VOID wlanbowCmdEventReadLinkQuality(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T pr
 * \retval none
 */
 /*----------------------------------------------------------------------------*/
-VOID wlanbowCmdEventReadRssi(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf)
+VOID wlanbowCmdEventReadRssi(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf, IN UINT_32 u4EventBufLen)
 {
 	P_EVENT_LINK_QUALITY prLinkQuality;
 	P_AMPC_EVENT prEvent;
@@ -1587,8 +1593,14 @@ VOID wlanbowCmdEventReadRssi(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo
 
 	ASSERT(prAdapter);
 
+	if (u4EventBufLen < sizeof(EVENT_LINK_QUALITY)) {
+		DBGLOG(BOW, WARN,
+			"Invalid event length: %d < %d \n",
+			u4EventBufLen,
+			sizeof(EVENT_LINK_QUALITY));
+		return;
+	}
 	prLinkQuality = (P_EVENT_LINK_QUALITY) pucEventBuf;
-
 	/* fill event header */
 	prEvent = (P_AMPC_EVENT) kalMemAlloc((sizeof(AMPC_EVENT) + sizeof(BOW_LINK_QUALITY)), VIR_MEM_TYPE);
 	if (!prEvent) {

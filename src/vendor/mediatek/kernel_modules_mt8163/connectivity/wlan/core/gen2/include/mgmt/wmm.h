@@ -196,7 +196,7 @@ wmmTspecSteps(P_ADAPTER_T prAdapter, UINT_8 ucTid,
 					   enum TSPEC_OP_CODE eOpCode, VOID *prStepParams);
 UINT_8 wmmHasActiveTspec(struct WMM_INFO *prWmmInfo);
 VOID wmmNotifyDisconnected(P_ADAPTER_T prAdapter);
-void wmmComposeTsmRpt(P_ADAPTER_T prAdapter, P_CMD_INFO_T prCmdInfo, PUINT_8 pucEventBuf);
+void wmmComposeTsmRpt(P_ADAPTER_T prAdapter, P_CMD_INFO_T prCmdInfo, PUINT_8 pucEventBuf, IN UINT_32 u4EventBufLen);
 VOID wmmInit(IN P_ADAPTER_T prAdapter);
 VOID wmmUnInit(IN P_ADAPTER_T prAdapter);
 BOOLEAN wmmTsmIsOngoing(P_ADAPTER_T prAdapter);

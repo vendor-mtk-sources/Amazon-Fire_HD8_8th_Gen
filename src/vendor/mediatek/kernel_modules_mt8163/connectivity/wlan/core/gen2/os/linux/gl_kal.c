@@ -1795,6 +1795,10 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 
 		DBGLOG(AIS, INFO, "[wifi] %s netif_carrier_off\n",
 				    prGlueInfo->prDevHandler->name);
+#if CFG_SUPPORT_RSSI_STATISTICS
+		wlanGetTxRxCount(prGlueInfo->prAdapter, 1);
+		prGlueInfo->prAdapter->ucAisConnectionStatus = 3;
+#endif
 
 		netif_carrier_off(prGlueInfo->prDevHandler);
 
@@ -4683,6 +4687,58 @@ VOID kalScheduleCommonWork(struct DRV_COMMON_WORK_T *prDrvWork, struct DRV_COMMO
 	spin_unlock_irqrestore(&prDrvWork->rWorkFuncQueLock, ulFlags);
 	schedule_work(&prDrvWork->rWork);
 }
+
+#if CFG_SUPPORT_DFS
+void kalIndicateChannelSwitch(IN GLUE_INFO_T *prGlueInfo,
+				IN ENUM_CHNL_EXT_T eSco,
+				IN UINT_8 ucChannelNum)
+{
+	struct cfg80211_chan_def chandef;
+	struct ieee80211_channel *prChannel = NULL;
+	enum nl80211_channel_type rChannelType;
+
+	if (ucChannelNum <= 14) {
+		prChannel =
+		    ieee80211_get_channel(priv_to_wiphy(prGlueInfo),
+			ieee80211_channel_to_frequency(ucChannelNum,
+			KAL_BAND_2GHZ));
+	} else {
+		prChannel =
+		    ieee80211_get_channel(priv_to_wiphy(prGlueInfo),
+			ieee80211_channel_to_frequency(ucChannelNum,
+			KAL_BAND_5GHZ));
+	}
+
+	if (!prChannel) {
+		DBGLOG(REQ, ERROR, "ieee80211_get_channel fail!\n");
+		return;
+	}
+
+	switch (eSco) {
+	case CHNL_EXT_SCN:
+		rChannelType = NL80211_CHAN_NO_HT;
+		break;
+
+	case CHNL_EXT_SCA:
+		rChannelType = NL80211_CHAN_HT40MINUS;
+		break;
+
+	case CHNL_EXT_SCB:
+		rChannelType = NL80211_CHAN_HT40PLUS;
+		break;
+
+	case CHNL_EXT_RES:
+	default:
+		rChannelType = NL80211_CHAN_HT20;
+		break;
+	}
+
+	DBGLOG(REQ, STATE, "DFS channel switch to %d\n", ucChannelNum);
+
+	cfg80211_chandef_create(&chandef, prChannel, rChannelType);
+	cfg80211_ch_switch_notify(prGlueInfo->prDevHandler, &chandef);
+}
+#endif
 
 static UINT_16 kalGetEthType(struct sk_buff *prSkb)
 {

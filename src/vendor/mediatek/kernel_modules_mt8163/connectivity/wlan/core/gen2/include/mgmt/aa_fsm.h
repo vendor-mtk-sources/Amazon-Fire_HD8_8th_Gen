@@ -109,6 +109,7 @@
 
 /* Maximum Retry Count for accept a JOIN request. */
 #define JOIN_MAX_RETRY_FAILURE_COUNT                2	/* Times */
+#define JOIN_MAX_RETRY_OVERLOAD_RN                  1	/* Times */
 
 /*******************************************************************************
 *                             D A T A   T Y P E S
@@ -128,6 +129,11 @@ typedef enum _ENUM_AA_STATE_T {
 	AA_STATE_RESOURCE,	/* A state for debugging the case of out of msg buffer. */
 	AA_STATE_NUM
 } ENUM_AA_STATE_T;
+
+typedef enum _ENUM_AA_FRM_TYPE_T {
+	FRM_DISASSOC = 0,
+	FRM_DEAUTH
+} ENUM_AA_FRM_TYPE_T;
 
 /*******************************************************************************
 *                            P U B L I C   D A T A

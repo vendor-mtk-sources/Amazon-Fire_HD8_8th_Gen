@@ -233,6 +233,12 @@ BOOLEAN secTransmitKeyExist(IN P_ADAPTER_T prAdapter, IN P_STA_RECORD_T prSta);
 
 BOOLEAN secEnabledInAis(IN P_ADAPTER_T prAdapter);
 
+#if CFG_SUPPORT_RSSI_STATISTICS
+void secHandleRxEapolPacket(IN P_ADAPTER_T prAdapter,
+			    IN P_SW_RFB_T prRetSwRfb);
+enum ENUM_EAPOL_KEY_TYPE_T secGetEapolKeyType(uint8_t *pucPkt);
+#endif
+
 /*******************************************************************************
 *                              F U N C T I O N S
 ********************************************************************************

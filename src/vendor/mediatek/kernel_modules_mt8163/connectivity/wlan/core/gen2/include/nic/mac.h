@@ -207,6 +207,11 @@
 #define ETHER_MIN_PKT_SZ                        60
 #define ETHER_MAX_PKT_SZ                        1514
 
+#define ETH_802_1Q_HEADER_LEN                   4
+#define ETH_P_VLAN                              0x8100
+
+
+
 /* IEEE 802.11 WLAN Frame Field Size, in byte */
 #define WLAN_MAC_HEADER_LEN                     24	/* Address 4 excluded */
 #define WLAN_MAC_HEADER_A4_LEN                  30	/* Address 4 included */

@@ -143,6 +143,8 @@ typedef enum {
 #define MAX_FW_ROAMING_BLACKLIST_SIZE	16
 #define MAX_FW_ROAMING_WHITELIST_SIZE	16
 
+#define MAX_IP_PKT_LEN	256
+
 /*******************************************************************************
 *                             D A T A   T Y P E S
 ********************************************************************************

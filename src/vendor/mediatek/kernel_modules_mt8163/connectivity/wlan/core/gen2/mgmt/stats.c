@@ -1226,10 +1226,18 @@ VOID StatsTxPktInfoDisplay(UINT_8 *pPkt, PBOOLEAN pfgIsNeedAck)
 * \retval None
 */
 /*----------------------------------------------------------------------------*/
-VOID StatsTxPktDoneInfoDisplay(ADAPTER_T *prAdapter, UINT_8 *pucEvtBuf)
+VOID StatsTxPktDoneInfoDisplay(ADAPTER_T *prAdapter, UINT_8 *pucEvtBuf, UINT_32 u4EventBufLen)
 {
 	EVENT_TX_DONE_STATUS_T *prTxDone;
 
+	if (u4EventBufLen < sizeof(EVENT_TX_DONE_STATUS_T))
+	{
+		DBGLOG(RX, WARN,
+			"Invalid event length: %d < %d \n",
+			u4EventBufLen,
+			sizeof(EVENT_TX_DONE_STATUS_T));
+		return;
+	}
 	prTxDone = (EVENT_TX_DONE_STATUS_T *) pucEvtBuf;
 	statsParsePktInfo(prTxDone->aucPktBuf, prTxDone->ucStatus, EVENT_TX_DONE, NULL);
 }

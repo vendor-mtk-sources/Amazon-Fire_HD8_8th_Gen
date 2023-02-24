@@ -1143,6 +1143,11 @@ assocCheckRxReAssocRspFrameStatus(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRf
 	/* WLAN_GET_FIELD_16(&prAssocRspFrame->u2FrameCtrl, &u2RxFrameCtrl); */
 	u2RxFrameCtrl = prAssocRspFrame->u2FrameCtrl;	/* NOTE(Kevin): Optimized for ARM */
 	u2RxFrameCtrl &= MASK_FRAME_TYPE;
+#if CFG_SUPPORT_RSSI_STATISTICS
+	prAdapter->arRxRssiStatistics.ucAssocRcpi = prSwRfb->prHifRxHdr->ucRcpi;
+	prAdapter->arRxRssiStatistics.ucAssocRetransmission= (u2RxFrameCtrl & MASK_FC_RETRY);
+#endif
+
 	if (prStaRec->fgIsReAssoc) {
 		if (u2RxFrameCtrl != MAC_FRAME_REASSOC_RSP)
 			return WLAN_STATUS_FAILURE;

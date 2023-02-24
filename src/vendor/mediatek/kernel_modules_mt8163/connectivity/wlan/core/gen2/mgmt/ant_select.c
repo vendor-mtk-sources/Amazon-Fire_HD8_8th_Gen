@@ -154,7 +154,8 @@ VOID antenna_select_fsm(IN P_ADAPTER_T prAdapter,
 
 VOID antenna_select_query_antenna_event(IN P_ADAPTER_T prAdapter,
 					IN P_CMD_INFO_T prCmdInfo,
-					IN PUINT_8 pucEventBuf)
+					IN PUINT_8 pucEventBuf,
+					IN UINT_32 u4EventBufLen)
 {
 	UINT_32 u4QueryInfoLen;
 	struct antenna_select_config *config;
@@ -163,6 +164,7 @@ VOID antenna_select_query_antenna_event(IN P_ADAPTER_T prAdapter,
 	P_BSS_INFO_T prAisBssInfo;
 	P_BSS_DESC_T prBssDesc = NULL;
 	void *info_buffer = prCmdInfo->pvInformationBuffer;
+	WLAN_STATUS rStatus = WLAN_STATUS_SUCCESS;
 
 	ASSERT(prAdapter);
 	ASSERT(prCmdInfo);
@@ -172,7 +174,7 @@ VOID antenna_select_query_antenna_event(IN P_ADAPTER_T prAdapter,
 	prBssDesc = scanSearchBssDescByBssid(prAdapter, prAisBssInfo->aucBSSID);
 	prGlueInfo = prAdapter->prGlueInfo;
 
-	if (info_buffer) {
+	if (info_buffer && u4EventBufLen >= sizeof(CMD_SW_DBG_CTRL_T)) {
 		prCmdSwCtrl = (P_CMD_SW_DBG_CTRL_T) (pucEventBuf);
 
 		u4QueryInfoLen = sizeof(PARAM_CUSTOM_SW_CTRL_STRUCT_T);
@@ -186,13 +188,15 @@ VOID antenna_select_query_antenna_event(IN P_ADAPTER_T prAdapter,
 
 		DBGLOG(ANT, INFO, "Main Antenna = Ant_%u: Connect Rssi = %d\n",
 		       config->ant_num, config->rssi);
+	} else {
+		rStatus = WLAN_STATUS_FAILURE;
 	}
 
 	if (prCmdInfo->fgIsOid)
 		kalOidComplete(prGlueInfo,
 			       prCmdInfo->fgSetQuery,
 			       u4QueryInfoLen,
-			       WLAN_STATUS_SUCCESS);
+			       rStatus);
 }
 
 VOID antenna_select_query_antenna_timeout(IN P_ADAPTER_T prAdapter,

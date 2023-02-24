@@ -135,6 +135,23 @@ typedef struct _CMD_ROAMING_CTRL_T {
 	ROAMING_STATE_NUM
 } ENUM_ROAMING_STATE_T;
 
+typedef enum _ENUM_ROAMING_STATUS_T {
+	 ROAMING_SUCCESS = 0,
+	 ROAMING_CURRENT_IS_BEST,
+	 ROAMING_AUTH_FAIL,
+	 ROAMING_ASSOC_FAIL,
+	 ROAMING_SINGLE_AP,
+	 ROAMING_NUM
+ } ENUM_ROAMING_STATUS_T, *P_ENUM_ROAMIGN_STATUS_T;
+
+typedef enum _ENUM_ROAMING_TYPE_T {
+	 ROAMING_LEGACY = 0,
+	 ROAMING_11K,
+	 ROAMING_11V,
+	 ROAMING_TYPE
+ } ENUM_ROAMING_TYPE_T, *P_ENUM_ROAMIGN_TYPE_T;
+
+
 typedef struct _ROAMING_INFO_T {
 	BOOLEAN fgIsEnableRoaming;
 
@@ -143,6 +160,11 @@ typedef struct _ROAMING_INFO_T {
 	OS_SYSTIME rRoamingDiscoveryUpdateTime;
 
 	BOOLEAN fgDrvRoamingAllow;
+	OS_SYSTIME u4RoamingStartTime;
+	ENUM_ROAMING_STATUS_T eRoamingStatus;
+	UINT_8 ucHasRoamingScan;
+	ENUM_ROAMING_TYPE_T eRoaming_type;
+	INT_8  oldApRssi;
 #define ROAMING_ENTRY_TIMEOUT_SKIP_COUNT_MAX		2
 	UINT_32 RoamingEntryTimeoutSkipCount;
 
@@ -195,7 +217,7 @@ VOID roamingFsmRunEventFail(IN P_ADAPTER_T prAdapter, IN UINT_32 u4Reason);
 
 VOID roamingFsmRunEventAbort(IN P_ADAPTER_T prAdapter);
 
-WLAN_STATUS roamingFsmProcessEvent(IN P_ADAPTER_T prAdapter, IN P_ROAMING_PARAM_T prParam);
+WLAN_STATUS roamingFsmProcessEvent(IN P_ADAPTER_T prAdapter, IN P_ROAMING_PARAM_T prParam, IN UINT_32 u4EventBufLen);
 
 /*******************************************************************************
 *                              F U N C T I O N S

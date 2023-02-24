@@ -912,6 +912,8 @@ VOID scnUninit(IN P_ADAPTER_T prAdapter)
 #endif
 
 	kalMemFree(prScanInfo->prPscnParam, VIR_MEM_TYPE, sizeof(PSCN_PARAM_T));
+	prScanInfo->prPscnParam = NULL;
+
 
 }				/* end of scnUninit() */
 

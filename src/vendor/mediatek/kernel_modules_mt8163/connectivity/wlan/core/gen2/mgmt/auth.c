@@ -731,6 +731,11 @@ authCheckRxAuthFrameStatus(IN P_ADAPTER_T prAdapter,
 	/* 4 <2> Parse the Fixed Fields of Authentication Frame Body. */
 	/* WLAN_GET_FIELD_16(&prAuthFrame->u2AuthAlgNum, &u2RxAuthAlgNum); */
 	u2RxAuthAlgNum = prAuthFrame->u2AuthAlgNum;	/* NOTE(Kevin): Optimized for ARM */
+#if CFG_SUPPORT_RSSI_STATISTICS
+	prAdapter->arRxRssiStatistics.ucAuthRcpi= prSwRfb->prHifRxHdr->ucRcpi;
+	prAdapter->arRxRssiStatistics.ucAuthRetransmission= (prAuthFrame->u2FrameCtrl & MASK_FC_RETRY);
+#endif
+
 	if (u2RxAuthAlgNum != (UINT_16) prStaRec->ucAuthAlgNum) {
 		DBGLOG(SAA, LOUD, "Discard Auth frame with auth type = %d, current = %d\n",
 				   u2RxAuthAlgNum, prStaRec->ucAuthAlgNum);

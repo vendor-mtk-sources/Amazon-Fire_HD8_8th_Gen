@@ -3332,6 +3332,7 @@ static long CAMERA_HW_Ioctl(struct file *a_pstFile,
 			if (copy_from_user(pBuff, (void *)a_u4Param,
 					_IOC_SIZE(a_u4Command))) {
 				kfree(pBuff);
+				pBuff = NULL;
 				PK_ERR("[CAMERA SENSOR] ioctl copy from user failed\n");
 				i4RetValue =  -EFAULT;
 				goto CAMERA_HW_Ioctl_EXIT;
@@ -3412,6 +3413,7 @@ static long CAMERA_HW_Ioctl(struct file *a_pstFile,
 	default:
 		PK_ERR("No such command\n");
 		i4RetValue = -EPERM;
+		goto CAMERA_HW_Ioctl_EXIT;
 		break;
 
 	}
@@ -3420,14 +3422,18 @@ static long CAMERA_HW_Ioctl(struct file *a_pstFile,
 		if (copy_to_user((void __user *)a_u4Param, pBuff,
 				_IOC_SIZE(a_u4Command))) {
 			kfree(pBuff);
+			pBuff = NULL;
 			PK_ERR("[CAMERA SENSOR] ioctl copy to user failed\n");
 			i4RetValue = -EFAULT;
 			goto CAMERA_HW_Ioctl_EXIT;
 		}
 	}
 
-	kfree(pBuff);
 CAMERA_HW_Ioctl_EXIT:
+	if (pBuff != NULL) {
+		kfree(pBuff);
+		pBuff = NULL;
+	}
 	mutex_unlock(&kdCam_Mutex);
 	return i4RetValue;
 }

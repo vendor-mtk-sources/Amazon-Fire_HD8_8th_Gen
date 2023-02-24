@@ -912,6 +912,8 @@ typedef UINT_32 KAL_WAKE_LOCK_T, *P_KAL_WAKE_LOCK_T;
 #define KAL_WAKELOCK_DECLARE(_lock)
 #define KAL_WAKE_LOCK_ACTIVE(_prAdapter, _prWakeLock)
 #endif
+#define KAL_BAND_2GHZ NL80211_BAND_2GHZ
+#define KAL_BAND_5GHZ NL80211_BAND_5GHZ
 
 /*----------------------------------------------------------------------------*/
 /*!
@@ -1752,6 +1754,11 @@ VOID glLogSuspendResumeTime(BOOLEAN fgSuspend);
 VOID kalStatTRxPkts(P_GLUE_INFO_T prGlueInfo, struct sk_buff *prSkb, BOOLEAN fgTx);
 VOID kalStatDrvPkts(P_GLUE_INFO_T prGlueInfo, BOOLEAN fgTx, enum ENUM_DRV_PKT_TYPE eType, UINT_8 ucIDSubType);
 BOOLEAN glIsDataStatEnabled(VOID);
+#if CFG_SUPPORT_DFS
+void kalIndicateChannelSwitch(IN  GLUE_INFO_T *prGlueInfo,
+			IN ENUM_CHNL_EXT_T eSco,
+			IN UINT_8 ucChannelNum);
+#endif
 VOID kalStatOtherPkts(P_GLUE_INFO_T prGlueInfo, BOOLEAN fgTx, UINT_16 u2EthType, UINT_8 ucIpProto);
 BOOLEAN kalTRxStatsPaused(VOID);
 #endif

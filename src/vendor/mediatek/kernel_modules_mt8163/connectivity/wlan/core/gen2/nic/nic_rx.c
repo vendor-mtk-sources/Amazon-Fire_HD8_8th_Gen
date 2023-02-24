@@ -1533,6 +1533,9 @@ VOID nicRxProcessDataPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 					switch (prRetSwRfb->eDst) {
 					case RX_PKT_DESTINATION_HOST:
 						nicRxProcessPktWithoutReorder(prAdapter, prRetSwRfb);
+#if CFG_SUPPORT_RSSI_STATISTICS
+						secHandleRxEapolPacket(prAdapter, prRetSwRfb);
+#endif
 						break;
 
 					case RX_PKT_DESTINATION_FORWARD:
@@ -1586,6 +1589,7 @@ UINT_8 nicRxProcessGSCNEvent(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 	struct wiphy *wiphy;
 
 	UINT_32 real_num = 0;
+	UINT_32 u4EventBufLen;
 
 	P_EVENT_GSCAN_SCAN_AVAILABLE_T prEventGscnAvailable;
 	P_EVENT_GSCAN_RESULT_T prEventBuffer;
@@ -1613,7 +1617,7 @@ UINT_8 nicRxProcessGSCNEvent(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 
 	prEvent = (P_WIFI_EVENT_T) prSwRfb->pucRecvBuff;
 	prGlueInfo = prAdapter->prGlueInfo;
-
+	u4EventBufLen = prEvent->u2PacketLen - sizeof(WIFI_EVENT_T);
 	/* Push the data to the skb */
 	wiphy = priv_to_wiphy(prGlueInfo);
 
@@ -1622,9 +1626,17 @@ UINT_8 nicRxProcessGSCNEvent(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 	/* Event Handling */
 	switch (prEvent->ucEID) {
 	case EVENT_ID_GSCAN_SCAN_AVAILABLE:
-		{
-			DBGLOG(SCN, INFO, "EVENT_ID_GSCAN_SCAN_AVAILABLE\n");
+	{
+		DBGLOG(SCN, INFO, "EVENT_ID_GSCAN_SCAN_AVAILABLE\n");
 
+		if (u4EventBufLen < sizeof(EVENT_GSCAN_SCAN_AVAILABLE_T))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(EVENT_GSCAN_SCAN_AVAILABLE_T));
+		} else {
 			prEventGscnAvailable = (P_EVENT_GSCAN_SCAN_AVAILABLE_T) (prEvent->aucBuffer);
 			memcpy(prEventGscnAvailable, (P_EVENT_GSCAN_SCAN_AVAILABLE_T) (prEvent->aucBuffer),
 			       sizeof(EVENT_GSCAN_SCAN_AVAILABLE_T));
@@ -1633,17 +1645,26 @@ UINT_8 nicRxProcessGSCNEvent(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 									 prEventGscnAvailable->u2Num);
 		}
 		break;
+	}
 
 	case EVENT_ID_GSCAN_RESULT:
-		{
-			DBGLOG(SCN, INFO, "EVENT_ID_GSCAN_RESULT 2\n");
+	{
+		DBGLOG(SCN, INFO, "EVENT_ID_GSCAN_RESULT 2\n");
 
+		if (u4EventBufLen < sizeof(EVENT_GSCAN_RESULT_T))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(EVENT_GSCAN_RESULT_T));
+		} else {
 			prEventBuffer = (P_EVENT_GSCAN_RESULT_T) (prEvent->aucBuffer);
 			prEventGscnResult = prEventBuffer->rResult;
-/*
-    the following event struct should moved to kal and use the kal api to avoid future porting effort
+			/*
+			the following event struct should moved to kal and use the kal api to avoid future porting effort
 
-*/
+			*/
 			scan_id = prEventBuffer->u2ScanId;
 			scan_flag = prEventBuffer->u2ScanFlags;
 			real_num = prEventBuffer->u2NumOfResults;
@@ -1712,11 +1733,20 @@ UINT_8 nicRxProcessGSCNEvent(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 			DBGLOG(SCN, INFO, " i4Status %d\n", i4Status);
 		}
 		break;
+	}
 
 	case EVENT_ID_GSCAN_CAPABILITY:
-		{
-			DBGLOG(SCN, INFO, "EVENT_ID_GSCAN_CAPABILITY\n");
+	{
+		DBGLOG(SCN, INFO, "EVENT_ID_GSCAN_CAPABILITY\n");
 
+		if (u4EventBufLen < sizeof(EVENT_GSCAN_CAPABILITY_T))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(EVENT_GSCAN_CAPABILITY_T));
+		} else {
 			prEventGscnCapbiblity = (P_EVENT_GSCAN_CAPABILITY_T) (prEvent->aucBuffer);
 			memcpy(prEventGscnCapbiblity, (P_EVENT_GSCAN_CAPABILITY_T) (prEvent->aucBuffer),
 			       sizeof(EVENT_GSCAN_CAPABILITY_T));
@@ -1725,10 +1755,19 @@ UINT_8 nicRxProcessGSCNEvent(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 				prEventGscnCapbiblity, sizeof(EVENT_GSCAN_CAPABILITY_T));
 		}
 		break;
+	}
 
 	case EVENT_ID_GSCAN_SCAN_COMPLETE:
+	{
+		DBGLOG(SCN, INFO, "EVENT_ID_GSCAN_SCAN_COMPLETE\n");
+		if (u4EventBufLen < sizeof(EVENT_GSCAN_SCAN_COMPLETE_T))
 		{
-			DBGLOG(SCN, INFO, "EVENT_ID_GSCAN_SCAN_COMPLETE\n");
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(EVENT_GSCAN_SCAN_COMPLETE_T));
+		} else {
 			prEventGscnScnDone = (P_EVENT_GSCAN_SCAN_COMPLETE_T) (prEvent->aucBuffer);
 			memcpy(prEventGscnScnDone, (P_EVENT_GSCAN_SCAN_COMPLETE_T) (prEvent->aucBuffer),
 			       sizeof(EVENT_GSCAN_SCAN_COMPLETE_T));
@@ -1737,11 +1776,20 @@ UINT_8 nicRxProcessGSCNEvent(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 								prEventGscnScnDone->ucScanState);
 		}
 		break;
+	}
 
 	case EVENT_ID_GSCAN_FULL_RESULT:
-		{
-			DBGLOG(SCN, INFO, "EVENT_ID_GSCAN_FULL_RESULT\n");
+	{
+		DBGLOG(SCN, INFO, "EVENT_ID_GSCAN_FULL_RESULT\n");
 
+		if (u4EventBufLen < sizeof(WIFI_GSCAN_RESULT_T))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(WIFI_GSCAN_RESULT_T));
+		} else {
 			prEventGscnFullResult = kalMemAlloc(sizeof(WIFI_GSCAN_RESULT_T), VIR_MEM_TYPE);
 			if (prEventGscnFullResult)
 				memcpy(prEventGscnFullResult, (P_WIFI_GSCAN_RESULT_T) (prEvent->aucBuffer),
@@ -1759,22 +1807,41 @@ UINT_8 nicRxProcessGSCNEvent(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 			}
 		}
 		break;
+	}
 
 	case EVENT_ID_GSCAN_SIGNIFICANT_CHANGE:
+	{
+		if (u4EventBufLen < sizeof(EVENT_GSCAN_SIGNIFICANT_CHANGE_T))
 		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(EVENT_GSCAN_SIGNIFICANT_CHANGE_T));
+		} else {
 			prEventGscnSignificantChange = (P_EVENT_GSCAN_SIGNIFICANT_CHANGE_T) (prEvent->aucBuffer);
 			memcpy(prEventGscnSignificantChange, (P_EVENT_GSCAN_SIGNIFICANT_CHANGE_T) (prEvent->aucBuffer),
 			       sizeof(EVENT_GSCAN_SIGNIFICANT_CHANGE_T));
 		}
 		break;
+	}
 
 	case EVENT_ID_GSCAN_GEOFENCE_FOUND:
+	{
+		if (u4EventBufLen < sizeof(EVENT_GSCAN_SIGNIFICANT_CHANGE_T))
 		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(EVENT_GSCAN_SIGNIFICANT_CHANGE_T));
+		} else {
 			prEventGscnGeofenceFound = (P_EVENT_GSCAN_SIGNIFICANT_CHANGE_T) (prEvent->aucBuffer);
 			memcpy(prEventGscnGeofenceFound, (P_EVENT_GSCAN_SIGNIFICANT_CHANGE_T) (prEvent->aucBuffer),
 			       sizeof(EVENT_GSCAN_SIGNIFICANT_CHANGE_T));
 		}
 		break;
+	}
 
 	default:
 		DBGLOG(SCN, INFO, "not GSCN event ????\n");
@@ -1806,6 +1873,7 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 	P_MSDU_INFO_T prMsduInfo;
 	P_WIFI_EVENT_T prEvent;
 	P_GLUE_INFO_T prGlueInfo;
+	UINT_32 u4EventBufLen;
 
 	/*BOOLEAN fgKeepprSwRfb = FALSE;*/
 
@@ -1817,6 +1885,7 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 
 	prEvent = (P_WIFI_EVENT_T) prSwRfb->pucRecvBuff;
 	prGlueInfo = prAdapter->prGlueInfo;
+	u4EventBufLen = prEvent->u2PacketLen - sizeof(WIFI_EVENT_T);
 
 	DBGLOG(RX, INFO, "prEvent->ucEID = 0x%02x\n", prEvent->ucEID);
 
@@ -1835,44 +1904,64 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 	/* Event Handling */
 	switch (prEvent->ucEID) {
 	case EVENT_ID_WARNING_TO_DRIVER:
-		{
-			P_EVENT_LOG_TO_DRIVER_T prEventLog;
-			UINT_32 UpTimeSec, UpTimeMicroSec;
+	{
+		P_EVENT_LOG_TO_DRIVER_T prEventLog;
+		UINT_32 UpTimeSec, UpTimeMicroSec;
 
+		if (u4EventBufLen < sizeof(EVENT_LOG_TO_DRIVER_T))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(EVENT_LOG_TO_DRIVER_T));
+		} else {
 			prEventLog = (P_EVENT_LOG_TO_DRIVER_T) (prEvent->aucBuffer);
 			UpTimeSec = prEventLog->WifiUpTime / 1000000;
 			UpTimeMicroSec = prEventLog->WifiUpTime % 1000000;
 			LOG_FUNC("[%d.%d] FW Warning!! %s: %d, %s\n", UpTimeSec, UpTimeMicroSec, prEventLog->fileName,
 				 prEventLog->lineNo, prEventLog->log);
-
-			break;
 		}
+		break;
+	}
 	case EVENT_ID_CMD_RESULT:
 		prCmdInfo = nicGetPendingCmdInfo(prAdapter, prEvent->ucSeqNum);
 
 		if (prCmdInfo != NULL) {
 			P_EVENT_CMD_RESULT prCmdResult;
 
-			prCmdResult = (P_EVENT_CMD_RESULT) ((PUINT_8) prEvent + EVENT_HDR_SIZE);
-
-			/* CMD_RESULT should be only in response to Set commands */
-			ASSERT(prCmdInfo->fgSetQuery == FALSE || prCmdInfo->fgNeedResp == TRUE);
-
-			if (prCmdResult->ucStatus == 0) {	/* success */
-				if (prCmdInfo->pfCmdDoneHandler) {
-					prCmdInfo->pfCmdDoneHandler(prAdapter, prCmdInfo, prEvent->aucBuffer);
-				} else if (prCmdInfo->fgIsOid == TRUE) {
-					kalOidComplete(prAdapter->prGlueInfo, prCmdInfo->fgSetQuery, 0,
-						       WLAN_STATUS_SUCCESS);
-				}
-			} else if (prCmdResult->ucStatus == 1) {	/* reject */
+			if (u4EventBufLen < sizeof(EVENT_CMD_RESULT))
+			{
+				DBGLOG(RX, WARN,
+					"RX EVENT packet length too small %d %d %u\n",
+					prEvent->ucEID,
+					u4EventBufLen,
+					sizeof(EVENT_CMD_RESULT));
 				if (prCmdInfo->fgIsOid == TRUE)
 					kalOidComplete(prAdapter->prGlueInfo, prCmdInfo->fgSetQuery, 0,
 						       WLAN_STATUS_FAILURE);
-			} else if (prCmdResult->ucStatus == 2) {	/* unknown CMD */
-				if (prCmdInfo->fgIsOid == TRUE)
-					kalOidComplete(prAdapter->prGlueInfo, prCmdInfo->fgSetQuery, 0,
-						       WLAN_STATUS_NOT_SUPPORTED);
+			} else {
+				prCmdResult = (P_EVENT_CMD_RESULT) ((PUINT_8) prEvent + EVENT_HDR_SIZE);
+
+				/* CMD_RESULT should be only in response to Set commands */
+				ASSERT(prCmdInfo->fgSetQuery == FALSE || prCmdInfo->fgNeedResp == TRUE);
+
+				if (prCmdResult->ucStatus == 0) {	/* success */
+					if (prCmdInfo->pfCmdDoneHandler) {
+						prCmdInfo->pfCmdDoneHandler(prAdapter, prCmdInfo, prEvent->aucBuffer, u4EventBufLen);
+					} else if (prCmdInfo->fgIsOid == TRUE) {
+						kalOidComplete(prAdapter->prGlueInfo, prCmdInfo->fgSetQuery, 0,
+							       WLAN_STATUS_SUCCESS);
+					}
+				} else if (prCmdResult->ucStatus == 1) {	/* reject */
+					if (prCmdInfo->fgIsOid == TRUE)
+						kalOidComplete(prAdapter->prGlueInfo, prCmdInfo->fgSetQuery, 0,
+							       WLAN_STATUS_FAILURE);
+				} else if (prCmdResult->ucStatus == 2) {	/* unknown CMD */
+					if (prCmdInfo->fgIsOid == TRUE)
+						kalOidComplete(prAdapter->prGlueInfo, prCmdInfo->fgSetQuery, 0,
+							       WLAN_STATUS_NOT_SUPPORTED);
+				}
 			}
 			/* return prCmdInfo */
 			cmdBufFreeCmdInfo(prAdapter, prCmdInfo);
@@ -1965,11 +2054,19 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 		break;
 #endif
 	case EVENT_ID_ADD_PKEY_DONE:
-		{
-			P_EVENT_ADD_KEY_DONE_INFO prAddKeyDone;
-			P_STA_RECORD_T prStaRec;
-			UINT_8 ucKeyId = 0;
+	{
+		P_EVENT_ADD_KEY_DONE_INFO prAddKeyDone;
+		P_STA_RECORD_T prStaRec;
+		UINT_8 ucKeyId = 0;
 
+		if (u4EventBufLen < sizeof(EVENT_ADD_KEY_DONE_INFO))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(EVENT_ADD_KEY_DONE_INFO));
+		} else {
 			prAddKeyDone = (P_EVENT_ADD_KEY_DONE_INFO) (prEvent->aucBuffer);
 			ucKeyId = prAddKeyDone->ucKeyId;
 
@@ -1984,15 +2081,34 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 				       MAC2STR(prStaRec->aucMacAddr), ucKeyId);
 				prStaRec->fgIsTxKeyReady = TRUE;
 #if CFG_SUPPORT_802_11R
-                                if (prStaRec->fgIsValid) {
-                                        prStaRec->fgIsTxAllowed = TRUE;
-                                }
-                                DBGLOG(RSN, EVENT, "Add Key Done, Tx Allowed %d\n", prStaRec->fgIsTxAllowed);
+	                        if (prStaRec->fgIsValid) {
+	                                prStaRec->fgIsTxAllowed = TRUE;
+	                        }
+	                        DBGLOG(RSN, EVENT, "Add Key Done, Tx Allowed %d\n", prStaRec->fgIsTxAllowed);
 #endif
 			}
 		}
 		break;
+	}
 	case EVENT_ID_LINK_QUALITY:
+		prCmdInfo = nicGetPendingCmdInfo(prAdapter, prEvent->ucSeqNum);
+#if CFG_ENABLE_WIFI_DIRECT && CFG_SUPPORT_P2P_RSSI_QUERY
+		if (u4EventBufLen < sizeof(EVENT_LINK_QUALITY_EX) ||
+			u4EventBufLen < sizeof(EVENT_LINK_QUALITY))
+#else
+		if (u4EventBufLen < sizeof(EVENT_LINK_QUALITY))
+#endif
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d \n",
+				prEvent->ucEID,
+				prEvent->u2PacketLen);
+			if (prCmdInfo != NULL && prCmdInfo->fgIsOid) {
+				kalOidComplete(prAdapter->prGlueInfo, prCmdInfo->fgSetQuery, 0, WLAN_STATUS_FAILURE);
+				cmdBufFreeCmdInfo(prAdapter, prCmdInfo);
+			}
+			break;
+		}
 #if CFG_ENABLE_WIFI_DIRECT && CFG_SUPPORT_P2P_RSSI_QUERY
 		if (prEvent->u2PacketLen == EVENT_HDR_SIZE + sizeof(EVENT_LINK_QUALITY_EX)) {
 			P_EVENT_LINK_QUALITY_EX prLqEx = (P_EVENT_LINK_QUALITY_EX) (prEvent->aucBuffer);
@@ -2014,11 +2130,9 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 #endif
 
 		/* command response handling */
-		prCmdInfo = nicGetPendingCmdInfo(prAdapter, prEvent->ucSeqNum);
-
 		if (prCmdInfo != NULL) {
 			if (prCmdInfo->pfCmdDoneHandler)
-				prCmdInfo->pfCmdDoneHandler(prAdapter, prCmdInfo, prEvent->aucBuffer);
+				prCmdInfo->pfCmdDoneHandler(prAdapter, prCmdInfo, prEvent->aucBuffer, u4EventBufLen);
 			else if (prCmdInfo->fgIsOid)
 				kalOidComplete(prAdapter->prGlueInfo, prCmdInfo->fgSetQuery, 0, WLAN_STATUS_SUCCESS);
 			/* return prCmdInfo */
@@ -2047,13 +2161,21 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 		break;
 
 	case EVENT_ID_MIC_ERR_INFO:
+	{
+		P_EVENT_MIC_ERR_INFO prMicError;
+		/* P_PARAM_AUTH_EVENT_T prAuthEvent; */
+		P_STA_RECORD_T prStaRec;
+
+		DBGLOG(RSN, EVENT, "EVENT_ID_MIC_ERR_INFO\n");
+
+		if (u4EventBufLen < sizeof(EVENT_MIC_ERR_INFO))
 		{
-			P_EVENT_MIC_ERR_INFO prMicError;
-			/* P_PARAM_AUTH_EVENT_T prAuthEvent; */
-			P_STA_RECORD_T prStaRec;
-
-			DBGLOG(RSN, EVENT, "EVENT_ID_MIC_ERR_INFO\n");
-
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(EVENT_MIC_ERR_INFO));
+		} else {
 			prMicError = (P_EVENT_MIC_ERR_INFO) (prEvent->aucBuffer);
 			prStaRec = cnmGetStaRecByAddress(prAdapter,
 							 (UINT_8) NETWORK_TYPE_AIS_INDEX,
@@ -2088,23 +2210,41 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 #endif
 		}
 		break;
+	}
 
 	case EVENT_ID_ASSOC_INFO:
-		{
-			P_EVENT_ASSOC_INFO prAssocInfo;
+	{
+		P_EVENT_ASSOC_INFO prAssocInfo;
 
+		if (u4EventBufLen < sizeof(EVENT_ASSOC_INFO))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(EVENT_ASSOC_INFO));
+		} else {
 			prAssocInfo = (P_EVENT_ASSOC_INFO) (prEvent->aucBuffer);
 
 			kalHandleAssocInfo(prAdapter->prGlueInfo, prAssocInfo);
 		}
 		break;
+	}
 
 	case EVENT_ID_802_11_PMKID:
-		{
-			P_PARAM_AUTH_EVENT_T prAuthEvent;
-			PUINT_8 cp;
-			UINT_32 u4LenOfUsedBuffer;
+	{
+		P_PARAM_AUTH_EVENT_T prAuthEvent;
+		PUINT_8 cp;
+		UINT_32 u4LenOfUsedBuffer;
 
+		if (u4EventBufLen < sizeof(PARAM_AUTH_EVENT_T))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(PARAM_AUTH_EVENT_T));
+		} else {
 			prAuthEvent = (P_PARAM_AUTH_EVENT_T) prAdapter->aucIndicationEventBuffer;
 
 			prAuthEvent->rStatus.eStatusType = ENUM_STATUS_TYPE_CANDIDATE_LIST;
@@ -2124,6 +2264,7 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 						     sizeof(PARAM_STATUS_INDICATION_T) + u4LenOfUsedBuffer);
 		}
 		break;
+	}
 
 #if 0
 	case EVENT_ID_ACTIVATE_STA_REC_T:
@@ -2159,17 +2300,34 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 #endif
 
 	case EVENT_ID_SCAN_DONE:
-		scnEventScanDone(prAdapter, (P_EVENT_SCAN_DONE) (prEvent->aucBuffer));
+		if (u4EventBufLen < sizeof(EVENT_SCAN_DONE))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(EVENT_SCAN_DONE));
+		} else {
+			scnEventScanDone(prAdapter, (P_EVENT_SCAN_DONE) (prEvent->aucBuffer));
+		}
 		break;
 
 	case EVENT_ID_TX_DONE_STATUS:
-		STATS_TX_PKT_DONE_INFO_DISPLAY(prAdapter, prEvent->aucBuffer);
+		STATS_TX_PKT_DONE_INFO_DISPLAY(prAdapter, prEvent->aucBuffer, u4EventBufLen);
 		break;
 
 	case EVENT_ID_TX_DONE:
-		{
-			P_EVENT_TX_DONE_T prTxDone;
+	{
+		P_EVENT_TX_DONE_T prTxDone;
 
+		if (u4EventBufLen < sizeof(EVENT_TX_DONE_T))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(EVENT_TX_DONE_T));
+		} else {
 			prTxDone = (P_EVENT_TX_DONE_T) (prEvent->aucBuffer);
 
 			if (prTxDone->ucStatus == WLAN_STATUS_SUCCESS)
@@ -2205,11 +2363,20 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 			}
 		}
 		break;
+	}
 
 	case EVENT_ID_SLEEPY_NOTIFY:
-		{
-			P_EVENT_SLEEPY_NOTIFY prEventSleepyNotify;
+	{
+		P_EVENT_SLEEPY_NOTIFY prEventSleepyNotify;
 
+		if (u4EventBufLen < sizeof(EVENT_SLEEPY_NOTIFY))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(EVENT_SLEEPY_NOTIFY));
+		} else {
 			prEventSleepyNotify = (P_EVENT_SLEEPY_NOTIFY) (prEvent->aucBuffer);
 
 			/* DBGLOG(RX, INFO, ("ucSleepyState = %d\n", prEventSleepyNotify->ucSleepyState)); */
@@ -2217,15 +2384,24 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 			prAdapter->fgWiFiInSleepyState = (BOOLEAN) (prEventSleepyNotify->ucSleepyState);
 		}
 		break;
+	}
 	case EVENT_ID_BT_OVER_WIFI:
 #if CFG_ENABLE_BT_OVER_WIFI
-		{
-			UINT_8 aucTmp[sizeof(AMPC_EVENT) + sizeof(BOW_LINK_DISCONNECTED)];
-			P_EVENT_BT_OVER_WIFI prEventBtOverWifi;
-			P_AMPC_EVENT prBowEvent;
-			P_BOW_LINK_CONNECTED prBowLinkConnected;
-			P_BOW_LINK_DISCONNECTED prBowLinkDisconnected;
+	{
+		UINT_8 aucTmp[sizeof(AMPC_EVENT) + sizeof(BOW_LINK_DISCONNECTED)];
+		P_EVENT_BT_OVER_WIFI prEventBtOverWifi;
+		P_AMPC_EVENT prBowEvent;
+		P_BOW_LINK_CONNECTED prBowLinkConnected;
+		P_BOW_LINK_DISCONNECTED prBowLinkDisconnected;
 
+		if (u4EventBufLen < sizeof(EVENT_BT_OVER_WIFI))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(EVENT_BT_OVER_WIFI));
+		} else {
 			prEventBtOverWifi = (P_EVENT_BT_OVER_WIFI) (prEvent->aucBuffer);
 
 			/* construct event header */
@@ -2258,26 +2434,65 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 			}
 		}
 		break;
+	}
 #endif
 	case EVENT_ID_STATISTICS:
 		/* buffer statistics for further query */
 		prAdapter->fgIsStatValid = TRUE;
 		prAdapter->rStatUpdateTime = kalGetTimeTick();
-		kalMemCopy(&prAdapter->rStatStruct, prEvent->aucBuffer, sizeof(EVENT_STATISTICS));
-
-		/* command response handling */
 		prCmdInfo = nicGetPendingCmdInfo(prAdapter, prEvent->ucSeqNum);
+		if (u4EventBufLen < sizeof(EVENT_STATISTICS))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(EVENT_STATISTICS));
+			if (prCmdInfo != NULL && prCmdInfo->fgIsOid)
+				kalOidComplete(prAdapter->prGlueInfo, prCmdInfo->fgSetQuery, 0, WLAN_STATUS_FAILURE);
+		} else {
+			kalMemCopy(&prAdapter->rStatStruct, prEvent->aucBuffer, sizeof(EVENT_STATISTICS));
 
-		if (prCmdInfo != NULL) {
-			if (prCmdInfo->pfCmdDoneHandler)
-				prCmdInfo->pfCmdDoneHandler(prAdapter, prCmdInfo, prEvent->aucBuffer);
-			else if (prCmdInfo->fgIsOid)
-				kalOidComplete(prAdapter->prGlueInfo, prCmdInfo->fgSetQuery, 0, WLAN_STATUS_SUCCESS);
+			/* command response handling */
+			if (prCmdInfo != NULL) {
+				if (prCmdInfo->pfCmdDoneHandler)
+					prCmdInfo->pfCmdDoneHandler(prAdapter, prCmdInfo, prEvent->aucBuffer, u4EventBufLen);
+				else if (prCmdInfo->fgIsOid)
+					kalOidComplete(prAdapter->prGlueInfo, prCmdInfo->fgSetQuery, 0, WLAN_STATUS_SUCCESS);
+			}
+		}
+		if (prCmdInfo != NULL)
 			/* return prCmdInfo */
 			cmdBufFreeCmdInfo(prAdapter, prCmdInfo);
+		break;
+
+#if CFG_SUPPORT_RSSI_STATISTICS
+	case EVENT_ID_GET_RX_COUNT:
+		prCmdInfo = nicGetPendingCmdInfo(prAdapter, prEvent->ucSeqNum);
+		if (u4EventBufLen < sizeof(EVENT_RX_EVENT_COUNT))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(EVENT_RX_EVENT_COUNT));
+			if (prCmdInfo != NULL && prCmdInfo->fgIsOid)
+				kalOidComplete(prAdapter->prGlueInfo, prCmdInfo->fgSetQuery, 0, WLAN_STATUS_FAILURE);
+		} else {
+			/* command response handling */
+			if (prCmdInfo != NULL) {
+				if (prCmdInfo->pfCmdDoneHandler)
+					prCmdInfo->pfCmdDoneHandler(prAdapter, prCmdInfo, prEvent->aucBuffer, u4EventBufLen);
+				else if (prCmdInfo->fgIsOid)
+					kalOidComplete(prAdapter->prGlueInfo, prCmdInfo->fgSetQuery, 0, WLAN_STATUS_SUCCESS);
+			}
 		}
+		if (prCmdInfo != NULL)
+			/* return prCmdInfo */
+			cmdBufFreeCmdInfo(prAdapter, prCmdInfo);
 
 		break;
+#endif
 
 	case EVENT_ID_CH_PRIVILEGE:
 		cnmChMngrHandleChEvent(prAdapter, prEvent);
@@ -2299,62 +2514,79 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 		if (prAdapter->fgDisBcnLostDetection == FALSE) {
 			P_EVENT_BSS_BEACON_TIMEOUT_T prEventBssBeaconTimeout;
 
-			prEventBssBeaconTimeout = (P_EVENT_BSS_BEACON_TIMEOUT_T) (prEvent->aucBuffer);
+			if (u4EventBufLen < sizeof(EVENT_BSS_BEACON_TIMEOUT_T))
+			{
+				DBGLOG(RX, WARN,
+					"RX EVENT packet length too small %d %d %u\n",
+					prEvent->ucEID,
+					u4EventBufLen,
+					sizeof(EVENT_BSS_BEACON_TIMEOUT_T));
+			} else {
+				prEventBssBeaconTimeout = (P_EVENT_BSS_BEACON_TIMEOUT_T) (prEvent->aucBuffer);
 
-			DBGLOG(RX, WARN, "Beacon Timeout Reason = %u\n", prEventBssBeaconTimeout->ucReason);
+				DBGLOG(RX, WARN, "Beacon Timeout Reason = %u\n", prEventBssBeaconTimeout->ucReason);
 
 #if CFG_SUPPORT_EXCEPTION_STATISTICS
-			prAdapter->total_beacon_timeout_count++;
-			if (prEventBssBeaconTimeout->ucReason >= BEACON_TIMEOUT_TYPE_NUM) {
-				DBGLOG(RX, WARN, "Invaild Beacon Timeout Reason: %d\n",
-									prEventBssBeaconTimeout->ucReason);
-				break;
-			} else {
-				prAdapter->beacon_timeout_count[prEventBssBeaconTimeout->ucReason]++;
-			}
-#endif
-
-			if (prEventBssBeaconTimeout->ucNetTypeIndex == NETWORK_TYPE_AIS_INDEX) {
-				/* Request stats report before beacon timeout */
-				P_BSS_INFO_T prBssInfo;
-				P_STA_RECORD_T prStaRec;
-
-				prBssInfo = &(prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX]);
-				if (prBssInfo) {
-					prStaRec = cnmGetStaRecByAddress(prAdapter,
-									NETWORK_TYPE_AIS_INDEX,
-									prBssInfo->aucBSSID);
-					prBssInfo->u2DeauthReason = prEventBssBeaconTimeout->ucReason;
-					if (prStaRec)
-						STATS_ENV_REPORT_DETECT(prAdapter, prStaRec->ucIndex);
+				prAdapter->total_beacon_timeout_count++;
+				if (prEventBssBeaconTimeout->ucReason >= BEACON_TIMEOUT_TYPE_NUM) {
+					DBGLOG(RX, WARN, "Invaild Beacon Timeout Reason: %d\n",
+										prEventBssBeaconTimeout->ucReason);
+					break;
+				} else {
+					prAdapter->beacon_timeout_count[prEventBssBeaconTimeout->ucReason]++;
 				}
-				/* Report a lowest RSSI value to wlan framework, who will transfer it to modem and then
-				** modem can make a decision if need to switch to LTE data link.
-				*/
-				mtk_cfg80211_vendor_event_rssi_beyond_range(
-					priv_to_wiphy(prAdapter->prGlueInfo),
-					((prAdapter->prGlueInfo)->prDevHandler)->ieee80211_ptr,
-					(INT_32)-127); /* the lowest limit of FWK */
-
-				aisBssBeaconTimeout(prAdapter);
-			}
-#if CFG_ENABLE_WIFI_DIRECT
-			else if ((prAdapter->fgIsP2PRegistered) &&
-				 (prEventBssBeaconTimeout->ucNetTypeIndex == NETWORK_TYPE_P2P_INDEX))
-
-				p2pFsmRunEventBeaconTimeout(prAdapter);
 #endif
-			else {
-				DBGLOG(RX, ERROR, "EVENT_ID_BSS_BEACON_TIMEOUT: (ucNetTypeIdx = %d)\n",
-						   prEventBssBeaconTimeout->ucNetTypeIndex);
+
+				if (prEventBssBeaconTimeout->ucNetTypeIndex == NETWORK_TYPE_AIS_INDEX) {
+					/* Request stats report before beacon timeout */
+					P_BSS_INFO_T prBssInfo;
+					P_STA_RECORD_T prStaRec;
+
+					prBssInfo = &(prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX]);
+					if (prBssInfo) {
+						prStaRec = cnmGetStaRecByAddress(prAdapter,
+										NETWORK_TYPE_AIS_INDEX,
+										prBssInfo->aucBSSID);
+						prBssInfo->u2DeauthReason = prEventBssBeaconTimeout->ucReason;
+						if (prStaRec)
+							STATS_ENV_REPORT_DETECT(prAdapter, prStaRec->ucIndex);
+					}
+					/* Report a lowest RSSI value to wlan framework, who will transfer it to modem and then
+					** modem can make a decision if need to switch to LTE data link.
+					*/
+					mtk_cfg80211_vendor_event_rssi_beyond_range(
+						priv_to_wiphy(prAdapter->prGlueInfo),
+						((prAdapter->prGlueInfo)->prDevHandler)->ieee80211_ptr,
+						(INT_32)-127); /* the lowest limit of FWK */
+
+					aisBssBeaconTimeout(prAdapter);
+				}
+#if CFG_ENABLE_WIFI_DIRECT
+				else if ((prAdapter->fgIsP2PRegistered) &&
+					 (prEventBssBeaconTimeout->ucNetTypeIndex == NETWORK_TYPE_P2P_INDEX))
+
+					p2pFsmRunEventBeaconTimeout(prAdapter);
+#endif
+				else {
+					DBGLOG(RX, ERROR, "EVENT_ID_BSS_BEACON_TIMEOUT: (ucNetTypeIdx = %d)\n",
+							   prEventBssBeaconTimeout->ucNetTypeIndex);
+				}
 			}
 		}
 
 		break;
 	case EVENT_ID_RSSI_MONITOR:
-		{
-			INT_32 rssi = 0;
+	{
+		INT_32 rssi = 0;
 
+		if (u4EventBufLen < sizeof(INT_32))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(INT_32));
+		} else {
 			kalMemCopy(&rssi, prEvent->aucBuffer, sizeof(INT_32));
 			DBGLOG(RX, TRACE, "EVENT_ID_RSSI_MONITOR value=%d\n", rssi);
 
@@ -2363,19 +2595,29 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 				prGlueInfo->prDevHandler->ieee80211_ptr, rssi);
 		}
 		break;
+	}
 	case EVENT_ID_UPDATE_NOA_PARAMS:
 #if CFG_ENABLE_WIFI_DIRECT
 		if (prAdapter->fgIsP2PRegistered) {
 			P_EVENT_UPDATE_NOA_PARAMS_T prEventUpdateNoaParam;
 
-			prEventUpdateNoaParam = (P_EVENT_UPDATE_NOA_PARAMS_T) (prEvent->aucBuffer);
-
-			if (prEventUpdateNoaParam->ucNetTypeIndex == NETWORK_TYPE_P2P_INDEX) {
-				p2pProcessEvent_UpdateNOAParam(prAdapter,
-							       prEventUpdateNoaParam->ucNetTypeIndex,
-							       prEventUpdateNoaParam);
+			if (u4EventBufLen < sizeof(EVENT_UPDATE_NOA_PARAMS_T))
+			{
+				DBGLOG(RX, WARN,
+					"RX EVENT packet length too small %d %d %u\n",
+					prEvent->ucEID,
+					u4EventBufLen,
+					sizeof(EVENT_UPDATE_NOA_PARAMS_T));
 			} else {
-				ASSERT(0);
+				prEventUpdateNoaParam = (P_EVENT_UPDATE_NOA_PARAMS_T) (prEvent->aucBuffer);
+
+				if (prEventUpdateNoaParam->ucNetTypeIndex == NETWORK_TYPE_P2P_INDEX) {
+					p2pProcessEvent_UpdateNOAParam(prAdapter,
+								       prEventUpdateNoaParam->ucNetTypeIndex,
+								       prEventUpdateNoaParam);
+				} else {
+					ASSERT(0);
+				}
 			}
 		}
 #else
@@ -2385,12 +2627,20 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 
 	case EVENT_ID_STA_AGING_TIMEOUT:
 #if CFG_ENABLE_WIFI_DIRECT
-		{
-			if (prAdapter->fgDisStaAgingTimeoutDetection == FALSE) {
-				P_EVENT_STA_AGING_TIMEOUT_T prEventStaAgingTimeout;
-				P_STA_RECORD_T prStaRec;
-				P_BSS_INFO_T prBssInfo = (P_BSS_INFO_T) NULL;
+	{
+		if (prAdapter->fgDisStaAgingTimeoutDetection == FALSE) {
+			P_EVENT_STA_AGING_TIMEOUT_T prEventStaAgingTimeout;
+			P_STA_RECORD_T prStaRec;
+			P_BSS_INFO_T prBssInfo = (P_BSS_INFO_T) NULL;
 
+			if (u4EventBufLen < sizeof(EVENT_STA_AGING_TIMEOUT_T))
+			{
+				DBGLOG(RX, WARN,
+					"RX EVENT packet length too small %d %d %u\n",
+					prEvent->ucEID,
+					u4EventBufLen,
+					sizeof(EVENT_STA_AGING_TIMEOUT_T));
+			} else {
 				prEventStaAgingTimeout = (P_EVENT_STA_AGING_TIMEOUT_T) (prEvent->aucBuffer);
 				prStaRec = cnmGetStaRecByIndex(prAdapter, prEventStaAgingTimeout->ucStaRecIdx);
 				if (prStaRec == NULL)
@@ -2409,33 +2659,43 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 					p2pFuncDisconnect(prAdapter, prStaRec, TRUE, REASON_CODE_DISASSOC_INACTIVITY);
 
 			}
-			/* gDisStaAgingTimeoutDetection */
 		}
+		/* gDisStaAgingTimeoutDetection */
+	}
 #endif
 		break;
 
 	case EVENT_ID_AP_OBSS_STATUS:
 #if CFG_ENABLE_WIFI_DIRECT
 		if (prAdapter->fgIsP2PRegistered)
-			rlmHandleObssStatusEventPkt(prAdapter, (P_EVENT_AP_OBSS_STATUS_T) prEvent->aucBuffer);
+			rlmHandleObssStatusEventPkt(prAdapter, (P_EVENT_AP_OBSS_STATUS_T) prEvent->aucBuffer,
+				u4EventBufLen);
 #endif
 		break;
 
 	case EVENT_ID_ROAMING_STATUS:
 #if CFG_SUPPORT_ROAMING
-		{
-			P_ROAMING_PARAM_T prParam;
+	{
+		P_ROAMING_PARAM_T prParam;
 
-			prParam = (P_ROAMING_PARAM_T) (prEvent->aucBuffer);
-			roamingFsmProcessEvent(prAdapter, prParam);
-		}
+		prParam = (P_ROAMING_PARAM_T) (prEvent->aucBuffer);
+		roamingFsmProcessEvent(prAdapter, prParam, u4EventBufLen);
+	}
 #endif /* CFG_SUPPORT_ROAMING */
 		break;
 	case EVENT_ID_SEND_DEAUTH:
-		{
-			P_WLAN_MAC_HEADER_T prWlanMacHeader;
-			P_STA_RECORD_T prStaRec;
+	{
+		P_WLAN_MAC_HEADER_T prWlanMacHeader;
+		P_STA_RECORD_T prStaRec;
 
+		if (u4EventBufLen < sizeof(struct _WLAN_MAC_HEADER_T))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(struct _WLAN_MAC_HEADER_T));
+		} else {
 			prWlanMacHeader = (P_WLAN_MAC_HEADER_T) &prEvent->aucBuffer[0];
 			DBGLOG(RSN, INFO, "nicRx: aucAddr1: %pM, nicRx: aucAddr2: %pM\n",
 					prWlanMacHeader->aucAddr1, prWlanMacHeader->aucAddr2);
@@ -2456,25 +2716,43 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 			}
 		}
 		break;
+	}
 
 #if CFG_SUPPORT_RDD_TEST_MODE
 	case EVENT_ID_UPDATE_RDD_STATUS:
-		{
-			P_EVENT_RDD_STATUS_T prEventRddStatus;
+	{
+		P_EVENT_RDD_STATUS_T prEventRddStatus;
 
+		if (u4EventBufLen < sizeof(EVENT_RDD_STATUS_T))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(EVENT_RDD_STATUS_T));
+		} else {
 			prEventRddStatus = (P_EVENT_RDD_STATUS_T) (prEvent->aucBuffer);
 
 			prAdapter->ucRddStatus = prEventRddStatus->ucRddStatus;
 		}
-
 		break;
+	}
+
 #endif
 
 #if CFG_SUPPORT_BCM && CFG_SUPPORT_BCM_BWCS
 	case EVENT_ID_UPDATE_BWCS_STATUS:
-		{
-			P_PTA_IPC_T prEventBwcsStatus;
+	{
+		P_PTA_IPC_T prEventBwcsStatus;
 
+		if (u4EventBufLen < sizeof(struct _PTA_IPC_T))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(struct _PTA_IPC_T));
+		} else {
 			prEventBwcsStatus = (P_PTA_IPC_T) (prEvent->aucBuffer);
 
 #if CFG_SUPPORT_BCM_BWCS_DEBUG
@@ -2493,13 +2771,21 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 						     WLAN_STATUS_BWCS_UPDATE,
 						     (PVOID) prEventBwcsStatus, sizeof(PTA_IPC_T));
 		}
-
 		break;
+	}
 
 	case EVENT_ID_UPDATE_BCM_DEBUG:
-		{
-			P_PTA_IPC_T prEventBwcsStatus;
+	{
+		P_PTA_IPC_T prEventBwcsStatus;
 
+		if (u4EventBufLen < sizeof(struct _PTA_IPC_T))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(struct _PTA_IPC_T));
+		} else {
 			prEventBwcsStatus = (P_PTA_IPC_T) (prEvent->aucBuffer);
 
 #if CFG_SUPPORT_BCM_BWCS_DEBUG
@@ -2514,27 +2800,47 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 			prEventBwcsStatus->u.aucBTPParams[2], prEventBwcsStatus->u.aucBTPParams[3];
 #endif
 		}
-
 		break;
+	}
+
 #endif
 	case EVENT_ID_HEARTBEAT_INFO:
+	{
+		struct EVENT_HEARTBEAT_INFO_T *prHeartbeatInfo;
+
+		if (u4EventBufLen < sizeof(struct EVENT_HEARTBEAT_INFO_T))
 		{
-			struct EVENT_HEARTBEAT_INFO_T *prHeartbeatInfo;
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(struct EVENT_HEARTBEAT_INFO_T));
+		} else {
 			prHeartbeatInfo = (struct EVENT_HEARTBEAT_INFO_T *) (prEvent->aucBuffer);
 
 			kalHandleTcpHeartbeatTimeout(prAdapter->prGlueInfo, prHeartbeatInfo);
 		}
 		break;
+	}
 	case EVENT_ID_DEBUG_CODE:	/* only for debug */
-		{
-			UINT_32 u4CodeId;
+	{
+		UINT_32 u4CodeId;
 
-			DBGLOG(RSN, INFO, "[wlan-fw] function sequence: ");
+		DBGLOG(RSN, INFO, "[wlan-fw] function sequence: ");
+
+		if (u4EventBufLen < 1000)
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d 1000\n",
+				prEvent->ucEID,
+				u4EventBufLen);
+		} else {
 			for (u4CodeId = 0; u4CodeId < 1000; u4CodeId++)
 				DBGLOG(RSN, INFO, "%d ", prEvent->aucBuffer[u4CodeId]);
 			DBGLOG(RSN, INFO, "\n\n");
 		}
 		break;
+	}
 
 	case EVENT_ID_RFTEST_READY:
 
@@ -2543,7 +2849,7 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 
 		if (prCmdInfo != NULL) {
 			if (prCmdInfo->pfCmdDoneHandler)
-				prCmdInfo->pfCmdDoneHandler(prAdapter, prCmdInfo, prEvent->aucBuffer);
+				prCmdInfo->pfCmdDoneHandler(prAdapter, prCmdInfo, prEvent->aucBuffer, u4EventBufLen);
 			else if (prCmdInfo->fgIsOid)
 				kalOidComplete(prAdapter->prGlueInfo, prCmdInfo->fgSetQuery, 0, WLAN_STATUS_SUCCESS);
 			/* return prCmdInfo */
@@ -2562,64 +2868,72 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 		break;
 
 	case EVENT_ID_GSCAN_RESULT:
-		{
+	{
 
-			UINT_8 realnum = 0;
+		UINT_8 realnum = 0;
 
-			DBGLOG(SCN, TRACE, "nicRxProcessGSCNEvent  ----->\n");
-			realnum = nicRxProcessGSCNEvent(prAdapter, prSwRfb);
-			DBGLOG(SCN, TRACE, "nicRxProcessGSCNEvent  <-----\n");
+		DBGLOG(SCN, TRACE, "nicRxProcessGSCNEvent  ----->\n");
+		realnum = nicRxProcessGSCNEvent(prAdapter, prSwRfb);
+		DBGLOG(SCN, TRACE, "nicRxProcessGSCNEvent  <-----\n");
 
 #if 0			/* workaround for FW events cnt mis-match with the actual reqirements from wifi_hal */
-			if (g_GetResultsCmdCnt == 0) {
-				DBGLOG(SCN, INFO,
-					"FW report events more than the wifi_hal asked number, buffer the results\n");
-				UINT_8 i = 0;
+		if (g_GetResultsCmdCnt == 0) {
+			DBGLOG(SCN, INFO,
+				"FW report events more than the wifi_hal asked number, buffer the results\n");
+			UINT_8 i = 0;
 
-				for (i = 0; i < MAX_BUFFERED_GSCN_RESULTS; i++) {
+			for (i = 0; i < MAX_BUFFERED_GSCN_RESULTS; i++) {
 #if 1
-					if (!g_arGscanResultsIndicateNumber[i]) {
-						DBGLOG(SCN, INFO,
-						"found available index %d to insert results number %d into buffer\r\n",
-						i, realnum);
-
-						g_arGscnResultsTempBuffer[i] = prSwRfb;
-						g_arGscanResultsIndicateNumber[i] = realnum;
-						g_GetResultsBufferedCnt++;
-						fgKeepprSwRfb = TRUE;
-						DBGLOG(SCN, INFO, "results buffered in index[%d] \r\n", i);
-						break;
-					}
-#endif
-				}
-				if (i == MAX_BUFFERED_GSCN_RESULTS)
+				if (!g_arGscanResultsIndicateNumber[i]) {
 					DBGLOG(SCN, INFO,
-					"Gscn results buffer is full(all valid), no space to buffer result\r\n");
-			} else if (g_GetResultsCmdCnt > 0) {
-				DBGLOG(SCN, INFO, "FW report events match the wifi_hal asked number\n");
-				g_GetResultsCmdCnt--;
-			} else
-				DBGLOG(SCN, INFO, "g_GetResultsCmdCnt < 0 ??? unexpected case\n");
-#endif
-			/* end of workaround */
+					"found available index %d to insert results number %d into buffer\r\n",
+					i, realnum);
 
-		}
+					g_arGscnResultsTempBuffer[i] = prSwRfb;
+					g_arGscanResultsIndicateNumber[i] = realnum;
+					g_GetResultsBufferedCnt++;
+					fgKeepprSwRfb = TRUE;
+					DBGLOG(SCN, INFO, "results buffered in index[%d] \r\n", i);
+					break;
+				}
+#endif
+			}
+			if (i == MAX_BUFFERED_GSCN_RESULTS)
+				DBGLOG(SCN, INFO,
+				"Gscn results buffer is full(all valid), no space to buffer result\r\n");
+		} else if (g_GetResultsCmdCnt > 0) {
+			DBGLOG(SCN, INFO, "FW report events match the wifi_hal asked number\n");
+			g_GetResultsCmdCnt--;
+		} else
+			DBGLOG(SCN, INFO, "g_GetResultsCmdCnt < 0 ??? unexpected case\n");
+#endif
+		/* end of workaround */
+
+	}
 		break;
 
 	case EVENT_ID_NLO_DONE:
 		prAdapter->rWifiVar.rScanInfo.fgPscnOnnning = FALSE;
 
 		DBGLOG(INIT, INFO, "EVENT_ID_NLO_DONE\n");
-		scnEventNloDone(prAdapter, (P_EVENT_NLO_DONE_T) (prEvent->aucBuffer));
+		if (u4EventBufLen < sizeof(struct _EVENT_NLO_DONE_T))
+		{
+			DBGLOG(RX, WARN,
+				"RX EVENT packet length too small %d %d %u\n",
+				prEvent->ucEID,
+				u4EventBufLen,
+				sizeof(struct _EVENT_NLO_DONE_T));
+		} else {
+			scnEventNloDone(prAdapter, (P_EVENT_NLO_DONE_T) (prEvent->aucBuffer));
 #if CFG_SUPPORT_PNO
-		if (1) {
-			UNSET_NET_ACTIVE(prAdapter, NETWORK_TYPE_AIS_INDEX);
-			DBGLOG(INIT, INFO, "INACTIVE	AIS from  ACTIVEto disable PNO\n");
-			/* sync with firmware */
-			nicDeactivateNetwork(prAdapter, NETWORK_TYPE_AIS_INDEX);
-		}
+			if (1) {
+				UNSET_NET_ACTIVE(prAdapter, NETWORK_TYPE_AIS_INDEX);
+				DBGLOG(INIT, INFO, "INACTIVE	AIS from  ACTIVEto disable PNO\n");
+				/* sync with firmware */
+				nicDeactivateNetwork(prAdapter, NETWORK_TYPE_AIS_INDEX);
+			}
 #endif
-
+		}
 		break;
 
 #if CFG_SUPPORT_BATCH_SCAN
@@ -2631,7 +2945,7 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 
 		if (prCmdInfo != NULL) {
 			if (prCmdInfo->pfCmdDoneHandler)
-				prCmdInfo->pfCmdDoneHandler(prAdapter, prCmdInfo, prEvent->aucBuffer);
+				prCmdInfo->pfCmdDoneHandler(prAdapter, prCmdInfo, prEvent->aucBuffer, u4EventBufLen);
 			else if (prCmdInfo->fgIsOid)
 				kalOidComplete(prAdapter->prGlueInfo, prCmdInfo->fgSetQuery, 0, WLAN_STATUS_SUCCESS);
 			/* return prCmdInfo */
@@ -2664,7 +2978,7 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 
 		if (prCmdInfo != NULL) {
 			if (prCmdInfo->pfCmdDoneHandler)
-				prCmdInfo->pfCmdDoneHandler(prAdapter, prCmdInfo, prEvent->aucBuffer);
+				prCmdInfo->pfCmdDoneHandler(prAdapter, prCmdInfo, prEvent->aucBuffer, u4EventBufLen);
 			else if (prCmdInfo->fgIsOid)
 				kalOidComplete(prAdapter->prGlueInfo, prCmdInfo->fgSetQuery, 0, WLAN_STATUS_SUCCESS);
 			/* return prCmdInfo */
@@ -4116,3 +4430,4 @@ WLAN_STATUS nicRxProcessActionFrame(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSw
 
 	return WLAN_STATUS_SUCCESS;
 }
+

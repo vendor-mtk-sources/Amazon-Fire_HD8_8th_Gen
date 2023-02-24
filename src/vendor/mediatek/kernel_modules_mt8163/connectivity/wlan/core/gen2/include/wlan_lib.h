@@ -724,6 +724,25 @@ typedef struct _PARAM_GET_LTE_MODE {
 
 #endif
 
+#if CFG_SUPPORT_RSSI_STATISTICS
+struct WIFI_RX_RSSI_STATISTICS {
+	uint8_t ucAuthRcpi;
+	uint8_t ucAuthRetransmission;
+	uint8_t ucAssocRcpi;
+	uint8_t ucAssocRetransmission;
+	uint8_t ucM1Rcpi;
+	uint8_t ucM1Retransmission;
+};
+
+struct PARAM_GET_RSSI_STATISTICS {
+	struct WIFI_RX_RSSI_STATISTICS arRxRssiStatistics;
+	uint32_t u4RxPktNum;
+	uint8_t ucAisConnectionStatus;
+};
+
+#endif
+
+
 /*******************************************************************************
 *                            P U B L I C   D A T A
 ********************************************************************************
@@ -843,7 +862,7 @@ BOOLEAN wlanQueryTestMode(IN P_ADAPTER_T prAdapter);
 /* Security Frame Handling */
 BOOLEAN wlanProcessSecurityFrame(IN P_ADAPTER_T prAdapter, IN P_NATIVE_PACKET prPacket);
 
-VOID wlanSecurityFrameTxDone(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf);
+VOID wlanSecurityFrameTxDone(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf, IN UINT_32 u4EventBufLen);
 
 VOID wlanSecurityFrameTxTimeout(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo);
 
@@ -993,4 +1012,8 @@ VOID wlanCfgApply(IN P_ADAPTER_T prAdapter);
 void disconnect_sta_by_network(P_ADAPTER_T prAdapter,
 			       UINT_8 ucNetTypeIndex,
 			       PUINT_8 pucPeerMacAddr);
+#if CFG_SUPPORT_RSSI_STATISTICS
+void wlanGetTxRxCount(IN P_ADAPTER_T prAdapter, uint8_t ucAction);
+#endif /* CFG_SUPPORT_DATA_STALL */
+
 #endif /* _WLAN_LIB_H */

@@ -602,7 +602,8 @@ typedef struct _SEC_INFO_T {
 
 /* Fragment information structure */
 typedef struct _FRAG_INFO_T {
-	UINT_16 u2NextFragSeqCtrl;
+	UINT_16 u2SeqNo;
+	UINT_8 ucNextFragNo;
 	PUINT_8 pucNextFragStart;
 	P_SW_RFB_T pr1stFrag;
 	OS_SYSTIME rReceiveLifetimeLimit;	/* The receive time of 1st fragment */
@@ -854,10 +855,9 @@ struct _STA_RECORD_T {
     /*------------------------------------------------------------------------------------------*/
 	/* When this STA_REC is in use, set to TRUE. */
 	BOOLEAN fgIsValid;
-#if CFG_SUPPORT_802_11R
 	BOOLEAN fgIsTxAllowed;
+	/* TX key is ready */
 	BOOLEAN fgIsTxKeyReady;
-#endif
 
 	/* Per-STA Queues: [0] AC0, [1] AC1, [2] AC2, [3] AC3, [4] 802.1x */
 	QUE_T arTxQueue[NUM_OF_PER_STA_TX_QUEUES];

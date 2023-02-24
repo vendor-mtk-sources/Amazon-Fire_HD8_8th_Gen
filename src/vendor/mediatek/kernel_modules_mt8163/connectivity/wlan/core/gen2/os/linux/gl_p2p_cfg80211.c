@@ -1658,6 +1658,12 @@ int mtk_p2p_cfg80211_testmode_cmd(IN struct wiphy *wiphy, IN struct wireless_dev
 
 	DBGLOG(P2P, TRACE, "mtk_p2p_cfg80211_testmode_cmd\n");
 
+	if (len < sizeof(NL80211_DRIVER_TEST_PARAMS)) {
+		DBGLOG(P2P, WARN, "testmode_cmd len [%d] is invalid!\n",
+			len);
+		return -EINVAL;
+	}
+
 	if (data && len) {
 		prParams = (P_NL80211_DRIVER_TEST_PARAMS) data;
 	} else {
@@ -1851,6 +1857,12 @@ int mtk_p2p_cfg80211_testmode_p2p_sigma_cmd(IN struct wiphy *wiphy, IN void *dat
 	prP2pConnSettings = prGlueInfo->prAdapter->rWifiVar.prP2PConnSettings;
 
 	DBGLOG(P2P, TRACE, "mtk_p2p_cfg80211_testmode_p2p_sigma_cmd\n");
+
+	if (len < sizeof(NL80211_DRIVER_P2P_SIGMA_PARAMS)) {
+		DBGLOG(P2P, WARN, "sigma_cmd len [%d] is invalid!\n",
+			len);
+		return -EINVAL;
+	}
 
 	if (data && len) {
 		prParams = (P_NL80211_DRIVER_P2P_SIGMA_PARAMS) data;

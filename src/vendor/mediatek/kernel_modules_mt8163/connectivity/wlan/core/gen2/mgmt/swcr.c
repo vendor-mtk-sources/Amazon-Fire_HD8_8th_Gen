@@ -1160,10 +1160,16 @@ VOID swCrDebugCheckTimeout(IN P_ADAPTER_T prAdapter, ULONG ulParam)
 
 }
 
-VOID swCrDebugQuery(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf)
+VOID swCrDebugQuery(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN PUINT_8 pucEventBuf, IN UINT_32 u4EventBufLen)
 {
 	ASSERT(prAdapter);
-
+	if (u4EventBufLen < sizeof(CMD_SW_DBG_CTRL_T)) {
+		DBGLOG(RX, WARN,
+			"Invalid event length: %d < %d \n",
+			u4EventBufLen,
+			sizeof(CMD_SW_DBG_CTRL_T));
+		return;
+	}
 	swCrDebugCheck(prAdapter, (P_CMD_SW_DBG_CTRL_T) (pucEventBuf));
 }
 

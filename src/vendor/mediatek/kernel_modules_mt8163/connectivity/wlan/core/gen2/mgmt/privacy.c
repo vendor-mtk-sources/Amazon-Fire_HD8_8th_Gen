@@ -936,3 +936,63 @@ BOOLEAN secIsProtectedFrame(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsdu, I
 	return FALSE;
 }
 #endif
+#if CFG_SUPPORT_RSSI_STATISTICS
+/* return the type of Eapol frame. */
+enum ENUM_EAPOL_KEY_TYPE_T secGetEapolKeyType(uint8_t *pucPkt)
+{
+	uint8_t *pucEthBody = NULL;
+	uint8_t ucEapolType;
+	uint16_t u2EtherTypeLen;
+	uint8_t ucEthTypeLenOffset = ETHER_HEADER_LEN - ETHER_TYPE_LEN;
+	uint16_t u2KeyInfo = 0;
+
+	do {
+		ASSERT_BREAK(pucPkt != NULL);
+		WLAN_GET_FIELD_BE16(&pucPkt[ucEthTypeLenOffset],
+				    &u2EtherTypeLen);
+		if (u2EtherTypeLen == ETH_P_VLAN) {
+			ucEthTypeLenOffset += ETH_802_1Q_HEADER_LEN;
+			WLAN_GET_FIELD_BE16(&pucPkt[ucEthTypeLenOffset],
+					    &u2EtherTypeLen);
+		}
+		if (u2EtherTypeLen != ETH_P_1X)
+			break;
+		pucEthBody = &pucPkt[ucEthTypeLenOffset + ETHER_TYPE_LEN];
+		ucEapolType = pucEthBody[1];
+		if (ucEapolType != 3)	/* eapol key type */
+			break;
+		u2KeyInfo = *((uint16_t *) (&pucEthBody[5]));
+		switch (u2KeyInfo) {
+		case 0x8a00:
+			return EAPOL_KEY_1_OF_4;
+		case 0x0a01:
+			return EAPOL_KEY_2_OF_4;
+		case 0xca13:
+			return EAPOL_KEY_3_OF_4;
+		case 0x0a03:
+			return EAPOL_KEY_4_OF_4;
+		}
+	} while (FALSE);
+
+	return EAPOL_KEY_NOT_KEY;
+}
+
+
+void secHandleRxEapolPacket(IN P_ADAPTER_T prAdapter,
+			    IN P_SW_RFB_T prRetSwRfb)
+{
+	enum ENUM_EAPOL_KEY_TYPE_T eEapolKeyType;
+
+	do {
+		if (prRetSwRfb->u2PacketLen <= ETHER_HEADER_LEN)
+			break;
+
+		eEapolKeyType =  secGetEapolKeyType((uint8_t *) prRetSwRfb->pvHeader);
+		if (eEapolKeyType == EAPOL_KEY_1_OF_4) {
+			prAdapter->arRxRssiStatistics.ucM1Rcpi= prRetSwRfb->prHifRxHdr->ucRcpi;;
+			prAdapter->arRxRssiStatistics.ucM1Retransmission = HIF_RX_HDR_GET_RETRY_FLAG(prRetSwRfb->prHifRxHdr);
+			DBGLOG(RSN, INFO, "Rx EAPoL M1 frame\r\n");
+		}
+	} while (FALSE);
+}
+#endif

@@ -359,6 +359,11 @@ BOOLEAN wextSrchDesiredAdvProtocolIE(IN PUINT_8 pucIEStart, IN INT_32 i4TotalIeL
 BOOLEAN wextSrchDesiredRoamingConsortiumIE(IN PUINT_8 pucIEStart, IN INT_32 i4TotalIeLen, OUT PUINT_8 *ppucDesiredIE);
 #endif
 
+int
+priv_set_driver(IN struct net_device *prNetDev,
+		IN struct iw_request_info *prIwReqInfo, IN union iwreq_data *prIwReqData, IN OUT char *pcExtra);
+
+
 #if CFG_SUPPORT_WAPI
 BOOLEAN wextSrchDesiredWAPIIE(IN PUINT_8 pucIEStart, IN INT_32 i4TotalIeLen, OUT PUINT_8 *ppucDesiredIE);
 #endif

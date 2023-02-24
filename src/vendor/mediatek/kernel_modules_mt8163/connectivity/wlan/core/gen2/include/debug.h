@@ -136,6 +136,12 @@
 ********************************************************************************
 */
 #include "gl_typedef.h"
+#ifdef CONFIG_AMZN_METRICS_LOG
+#include <linux/amzn_metricslog.h>
+#endif
+#ifdef CONFIG_AMAZON_METRICS_LOG
+#include <linux/metricslog.h>
+#endif
 
 extern UINT_8 aucDebugModule[];
 extern UINT_32 u4DebugModule;
@@ -462,6 +468,11 @@ extern PINT_8 g_buf_p;
 VOID dumpMemory8(IN PUINT_8 pucStartAddr, IN UINT_32 u4Length);
 
 VOID dumpMemory32(IN PUINT_32 pu4StartAddr, IN UINT_32 u4Length);
+#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMZN_METRICS_LOG)
+int minerva_log_counter_to_vitals(android_LogPriority priority,
+		const char *source, const char *key,
+		long counter_value, const char *metadata);
+#endif
 
 /*******************************************************************************
 *                              F U N C T I O N S

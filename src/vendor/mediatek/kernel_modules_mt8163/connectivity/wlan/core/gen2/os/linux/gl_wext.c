@@ -443,6 +443,7 @@ static const struct iw_priv_args rIwPrivTable[] = {
 
 	{IOCTL_SET_STR, IW_PRIV_TYPE_CHAR | 256, 0, ""},
 	{IOCTL_GET_STR, 0, IW_PRIV_TYPE_CHAR | 2000, ""},
+	{IOCTL_GET_DRIVER, IW_PRIV_TYPE_CHAR | 2000, IW_PRIV_TYPE_CHAR | 2000, "driver"},
 
 	/* added for set_oid and get_oid */
 	{IOCTL_SET_STRUCT, 256, 0, ""},
@@ -550,6 +551,7 @@ static const iw_handler rIwPrivHandler[] = {
 	[IOCTL_SET_INTS - SIOCIWFIRSTPRIV] = priv_set_ints,
 	[IOCTL_GET_INTS - SIOCIWFIRSTPRIV] = priv_get_ints,
 	[IOCTL_SET_STRING - SIOCIWFIRSTPRIV] = priv_set_string,
+	[IOCTL_GET_DRIVER - SIOCIWFIRSTPRIV] = priv_set_driver,
 };
 
 const struct iw_handler_def wext_handler_def = {

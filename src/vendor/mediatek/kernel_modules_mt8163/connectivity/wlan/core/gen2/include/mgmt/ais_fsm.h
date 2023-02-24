@@ -273,6 +273,7 @@ extern MTK_WCN_BOOL mtk_wcn_wmt_assert(ENUM_WMTDRV_TYPE_T type, UINT32 reason);
 #define AIS_JOIN_CH_GRANT_THRESHOLD         10
 #define AIS_JOIN_CH_REQUEST_INTERVAL        2000
 #define AIS_FSM_JOIN_CH_REQUEST_INTERVAL    750
+#define AIS_AUTORN_MIN_INTERVAL             20
 
 #define AIS_SCN_DONE_TIMEOUT_SEC            30	/* 15 for 2.4G + 5G */ /* 5 */
 #define AIS_BLACKLIST_TIMEOUT               15 /* seconds */
@@ -432,6 +433,7 @@ typedef struct _AIS_FSM_INFO_T {
 	PARAM_SSID_T rRoamingSSID;
 
 	UINT_8 aucNeighborAPChnl[MAXIMUM_OPERATION_CHANNEL_LIST];
+	UINT_8 ucNeighborApChnlTotalCnt;
 	BOOLEAN fgPartialRoamScnIssued;
 	BOOLEAN fgFullRoamScnIssued;
 

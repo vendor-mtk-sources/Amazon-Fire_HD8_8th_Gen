@@ -359,6 +359,6 @@ VOID StatsRxPktInfoDisplay(UINT_8 *pPkt);
 
 VOID StatsTxPktInfoDisplay(UINT_8 *pPkt, PBOOLEAN pfgIsNeedAck);
 
-VOID StatsTxPktDoneInfoDisplay(ADAPTER_T *prAdapter, UINT_8 *pucEvtBuf);
+VOID StatsTxPktDoneInfoDisplay(ADAPTER_T *prAdapter, UINT_8 *pucEvtBuf, UINT_32 u4EventBufLen);
 
 /* End of stats.h */

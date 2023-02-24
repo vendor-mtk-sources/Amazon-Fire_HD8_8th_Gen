@@ -402,7 +402,7 @@
 *                   F U N C T I O N   D E C L A R A T I O N S
 ********************************************************************************
 */
-static VOID cnmStaRecHandleEventPkt(P_ADAPTER_T prAdapter, P_CMD_INFO_T prCmdInfo, PUINT_8 pucEventBuf);
+static VOID cnmStaRecHandleEventPkt(P_ADAPTER_T prAdapter, P_CMD_INFO_T prCmdInfo, PUINT_8 pucEventBuf, IN UINT_32 u4EventBufLen);
 
 static VOID cnmStaSendUpdateCmd(P_ADAPTER_T prAdapter, P_STA_RECORD_T prStaRec, BOOLEAN fgNeedResp);
 
@@ -1105,11 +1105,18 @@ cnmStaTheTypeGet(P_ADAPTER_T prAdapter,
 * @return (none)
 */
 /*----------------------------------------------------------------------------*/
-static VOID cnmStaRecHandleEventPkt(P_ADAPTER_T prAdapter, P_CMD_INFO_T prCmdInfo, PUINT_8 pucEventBuf)
+static VOID cnmStaRecHandleEventPkt(P_ADAPTER_T prAdapter, P_CMD_INFO_T prCmdInfo, PUINT_8 pucEventBuf, IN UINT_32 u4EventBufLen)
 {
 	P_EVENT_ACTIVATE_STA_REC_T prEventContent;
 	P_STA_RECORD_T prStaRec;
 
+	if (u4EventBufLen < sizeof(EVENT_ACTIVATE_STA_REC_T)) {
+		DBGLOG(MEM, WARN,
+			"Invalid event length: %d < %d \n",
+			u4EventBufLen,
+			sizeof(EVENT_ACTIVATE_STA_REC_T));
+		return;
+	}
 	prEventContent = (P_EVENT_ACTIVATE_STA_REC_T) pucEventBuf;
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prEventContent->ucStaRecIdx);
 

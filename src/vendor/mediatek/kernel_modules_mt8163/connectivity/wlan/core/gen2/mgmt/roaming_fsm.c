@@ -664,10 +664,18 @@ VOID roamingFsmRunEventAbort(IN P_ADAPTER_T prAdapter)
 * @return none
 */
 /*----------------------------------------------------------------------------*/
-WLAN_STATUS roamingFsmProcessEvent(IN P_ADAPTER_T prAdapter, IN P_ROAMING_PARAM_T prParam)
+WLAN_STATUS roamingFsmProcessEvent(IN P_ADAPTER_T prAdapter, IN P_ROAMING_PARAM_T prParam, IN UINT_32 u4EventBufLen)
 {
 	DBGLOG(ROAMING, LOUD, "ROAMING Process Events: Current Time = %u\n", kalGetTimeTick());
 
+	if (u4EventBufLen < sizeof(ROAMING_PARAM_T))
+	{
+		DBGLOG(ROAMING, WARN,
+			"Invalid event length: %d < %d \n",
+			u4EventBufLen,
+			sizeof(ROAMING_PARAM_T));
+		return WLAN_STATUS_FAILURE;
+	}
 	if (ROAMING_EVENT_DISCOVERY == prParam->u2Event)
 		roamingFsmRunEventDiscovery(prAdapter, prParam);
 

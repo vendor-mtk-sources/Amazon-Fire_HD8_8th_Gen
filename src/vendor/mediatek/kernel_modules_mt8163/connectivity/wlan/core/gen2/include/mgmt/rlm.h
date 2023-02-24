@@ -442,6 +442,9 @@ rlmCmd(
 	UINT_8		*prInBuf,
 	UINT_32	u4InBufLen
 	);
+#if CFG_SUPPORT_DFS
+VOID rlmCsaTimeout(P_ADAPTER_T prAdapter, ULONG ulParamPtr);
+#endif
 
 #if CFG_SUPPORT_802_11K
 VOID rlmGernerateRRMEnabledCapIE(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsduInfo);

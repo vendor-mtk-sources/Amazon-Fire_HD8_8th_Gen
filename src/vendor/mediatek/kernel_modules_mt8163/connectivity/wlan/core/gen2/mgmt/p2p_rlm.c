@@ -358,7 +358,7 @@ VOID rlmProcessHtAction(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb)
 * \return none
 */
 /*----------------------------------------------------------------------------*/
-VOID rlmHandleObssStatusEventPkt(P_ADAPTER_T prAdapter, P_EVENT_AP_OBSS_STATUS_T prObssStatus)
+VOID rlmHandleObssStatusEventPkt(P_ADAPTER_T prAdapter, P_EVENT_AP_OBSS_STATUS_T prObssStatus, UINT_32 u4EventBufLen)
 {
 	P_BSS_INFO_T prBssInfo;
 
@@ -366,6 +366,13 @@ VOID rlmHandleObssStatusEventPkt(P_ADAPTER_T prAdapter, P_EVENT_AP_OBSS_STATUS_T
 	ASSERT(prObssStatus);
 	ASSERT(prObssStatus->ucNetTypeIndex == NETWORK_TYPE_P2P_INDEX);
 
+	if (u4EventBufLen < sizeof(EVENT_AP_OBSS_STATUS_T)) {
+		DBGLOG(P2P, WARN,
+			"Invalid event length: %d < %d \n",
+			u4EventBufLen,
+			sizeof(EVENT_AP_OBSS_STATUS_T));
+		return;
+	}
 	prBssInfo = &prAdapter->rWifiVar.arBssInfo[prObssStatus->ucNetTypeIndex];
 	ASSERT(prBssInfo->eCurrentOPMode == OP_MODE_ACCESS_POINT);
 
